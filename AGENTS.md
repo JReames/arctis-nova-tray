@@ -10,7 +10,7 @@
   - Win32 HID and Windows Bluetooth PnP probing: `src/arctis-nova-tray/hardware/`
   - Light-mode DPI-aware GDI+ icon rendering and `HICON` lifecycle: `src/arctis-nova-tray/rendering/`
   - Light-mode status flyout card and tray context menu: `src/arctis-nova-tray/ui/`
-  - Human-facing usage, visual legend, and CLI documentation: `README.md`
+  - Human-facing usage, visual cheat sheet, and CLI documentation: `README.md` and `docs/VISUAL-GUIDE.md`
 
 ## 3. Behavior-Changing Local Rules
 1. **Zero External Package Downloads**: Both `.csproj` files must contain zero `<PackageReference>` entries and build completely offline against standard `.NET 9` Windows Desktop SDK targeting packs (`net9.0-windows`). Never add third-party NuGet package dependencies without explicit approval.
@@ -22,7 +22,7 @@
 5. **Interactive Taskbar Guard and Non-Squatting Discipline**:
    - `Program.Main` checks `FindWindowW("Shell_TrayWnd", null)` before acquiring `Local\ArctisNovaTray_SingleInstance_v1` (exiting with code `3` when no interactive taskbar is reachable unless `--allow-headless` is passed).
    - Automated or sandboxed verification sessions that launch `ArctisNovaTray.exe` with `--allow-headless` (`-AllowHeadless`) must run `.\scripts\Stop-ArctisNovaTray.ps1` before finishing so no headless process holds `Local\ArctisNovaTray_SingleInstance_v1`.
-6. **Naming Discipline**: Keep all directory names strictly lowercase kebab-case (`src/arctis-nova-tray/`, `tests/arctis-nova-tray-tests/`, `scripts/`) and keep PowerShell scripts in approved `Verb-Noun.ps1` form (`Start-ArctisNovaTray.ps1`, `Stop-ArctisNovaTray.ps1`, `Get-ArctisNovaStatus.ps1`).
+6. **Naming Discipline**: Keep all directory names strictly lowercase kebab-case (`src/arctis-nova-tray/`, `tests/arctis-nova-tray-tests/`, `scripts/`, `docs/images/icons/`) and keep PowerShell scripts in approved `Verb-Noun.ps1` form (`Start-ArctisNovaTray.ps1`, `Stop-ArctisNovaTray.ps1`, `Get-ArctisNovaStatus.ps1`).
 
 ## 4. Required Verification
 Run from the repository root:
@@ -42,9 +42,10 @@ Run from the repository root:
   .\scripts\Get-ArctisNovaStatus.ps1 -RawJson
   ```
   *(Note: Because `ArctisNovaTray.exe` uses `<OutputType>WinExe</OutputType>`, prefer `.\scripts\Get-ArctisNovaStatus.ps1` or pipe `& .\ArctisNovaTray.exe --status-json | Out-String` so PowerShell waits synchronously for stdout.)*
-- **Visual Icon Export (required after `rendering/` changes)**:
+- **Visual Icon & Documentation Asset Export (required after `rendering/` or `ui/` visual changes)**:
   ```powershell
   dotnet run --project .\src\arctis-nova-tray\ArctisNovaTray.csproj -c Release -- --export-icons .\artifacts\icons
+  dotnet run --project .\tests\arctis-nova-tray-tests\ArctisNovaTray.Tests.csproj -c Release -- --generate-docs .
   ```
 - **Live Tray Lifecycle & Single-Instance Check**:
   ```powershell
@@ -59,7 +60,8 @@ Run from the repository root:
 
 ## 5. Routing and Project Map
 - `ArctisNovaTray.sln`: Solution building both the WinForms tray executable and the zero-NuGet test runner.
-- `README.md`: User-facing visual state guide, detection architecture, CLI flags, and launcher usage.
+- `README.md`: Overview, quick-start steps, visual cheat sheet, PowerShell helpers, and technical reference.
+- `docs/VISUAL-GUIDE.md` & `docs/images/`: Annotated Status Card tour, taskbar pinning guide, everyday scenarios, and generated high-DPI diagrams/icons.
 - `LICENSE`: MIT license.
 - `scripts/Start-ArctisNovaTray.ps1`: Detached launcher supporting both packaged release layouts and source checkouts (`-Restart`, `-Silent`, `-AllowHeadless`, `-Build`), bringing the light-mode Status Card to the front when already running.
 - `scripts/Stop-ArctisNovaTray.ps1`: Graceful tray shutdown helper (signals `Local\ArctisNovaTray_Shutdown_v1` before process cleanup so no ghost tray icon remains).
@@ -73,6 +75,7 @@ Run from the repository root:
   - `ui/`: `TrayApplicationContext`, `StatusFlyoutForm` (Light Mode), and `DeviceChangeMonitor` (`WM_DEVICECHANGE`).
 - `tests/arctis-nova-tray-tests/`:
   - `Program.cs`: Deterministic test runner covering HID report parsing across all Nova 7 states, tooltip bounds, icon rendering, PNG export, tray lifecycle guards, and live probe execution.
+  - `DocAssetGenerator.cs`: High-DPI documentation diagram and icon exporter (`--generate-docs <repoRoot>`), keeping documentation rendering out of the shipped tray executable.
 
 ## Last Updated
 2026-11-13

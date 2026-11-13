@@ -15,8 +15,19 @@ internal static partial class Program
     private static int _passed;
     private static int _failed;
 
-    private static int Main()
+    private static int Main(string[] args)
     {
+        if (args.Length >= 2 && string.Equals(args[0], "--generate-docs", StringComparison.OrdinalIgnoreCase))
+        {
+            string root = Path.GetFullPath(args[1]);
+            IReadOnlyList<string> generated = DocAssetGenerator.GenerateAll(root);
+            foreach (string path in generated)
+            {
+                Console.WriteLine($"Generated: {path}");
+            }
+            return 0;
+        }
+
         Console.WriteLine("=== ArctisNovaTray Deterministic Test Suite ===");
 
         Run("Supported Dongle PID Catalog (15 Nova 7 models, excludes 0x22A0 wired cable)", TestPidCatalog);

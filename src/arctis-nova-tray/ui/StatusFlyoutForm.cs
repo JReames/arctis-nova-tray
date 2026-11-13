@@ -182,25 +182,65 @@ public sealed partial class StatusFlyoutForm : Form
 
     private int ScalePx(float logical) => (int)Math.Round(logical * DpiScale);
 
+    public static Bitmap RenderCardBitmap(HeadsetSnapshot snapshot, float scale = 1.5f)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        float clampedScale = Math.Clamp(scale, 1.0f, 3.0f);
+        int width = (int)Math.Round(356f * clampedScale);
+        int height = (int)Math.Round(312f * clampedScale);
+
+        var bmp = new Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        using Graphics g = Graphics.FromImage(bmp);
+        PaintCardSurface(
+            g,
+            new Size(width, height),
+            clampedScale,
+            snapshot,
+            isRefreshing: false,
+            refreshHovered: false,
+            out _);
+        return bmp;
+    }
+
     protected override void OnPaint(PaintEventArgs e)
     {
-        Graphics g = e.Graphics;
+        PaintCardSurface(
+            e.Graphics,
+            ClientSize,
+            DpiScale,
+            _snapshot,
+            _isRefreshing,
+            _refreshHovered,
+            out _refreshButtonBounds);
+    }
+
+    private static void PaintCardSurface(
+        Graphics g,
+        Size surfaceSize,
+        float s,
+        HeadsetSnapshot snapshot,
+        bool isRefreshing,
+        bool refreshHovered,
+        out RectangleF refreshButtonBounds)
+    {
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
         g.PixelOffsetMode = PixelOffsetMode.HighQuality;
 
-        float s = DpiScale;
-        var cardBounds = new RectangleF(0.5f, 0.5f, Width - 1f, Height - 1f);
+        int width = surfaceSize.Width;
+        int height = surfaceSize.Height;
+        var clientRect = new Rectangle(0, 0, width, height);
+        var cardBounds = new RectangleF(0.5f, 0.5f, width - 1f, height - 1f);
 
         // Crisp Windows 11 Light Mode card surface (#FFFFFF -> #F8FAFC) + #CBD5E1 border
         using (var bgBrush = new LinearGradientBrush(
-            ClientRectangle,
+            clientRect,
             Color.FromArgb(255, 255, 255),
             Color.FromArgb(248, 250, 252),
             LinearGradientMode.Vertical))
         using (var borderPen = new Pen(Color.FromArgb(203, 213, 225), 1.2f * s))
         {
-            g.FillRectangle(bgBrush, ClientRectangle);
+            g.FillRectangle(bgBrush, clientRect);
             g.DrawRectangle(borderPen, cardBounds.X, cardBounds.Y, cardBounds.Width, cardBounds.Height);
         }
 
@@ -208,8 +248,8 @@ public sealed partial class StatusFlyoutForm : Form
         float y = pad;
 
         // Header: dynamic rendered headset icon + title + status pill
-        int iconSize = Math.Max(32, ScalePx(42));
-        using (Bitmap iconBmp = TrayIconRenderer.RenderBitmap(_snapshot.VisualState, iconSize))
+        int iconSize = Math.Max(32, (int)Math.Round(42f * s));
+        using (Bitmap iconBmp = TrayIconRenderer.RenderBitmap(snapshot.VisualState, iconSize))
         {
             g.DrawImage(iconBmp, pad, y, iconSize, iconSize);
         }
@@ -220,11 +260,11 @@ public sealed partial class StatusFlyoutForm : Form
         using var rowLabelFont = new Font("Segoe UI", 9.0f * s, FontStyle.Regular, GraphicsUnit.Pixel);
         using var rowValueFont = new Font("Segoe UI Semibold", 9.2f * s, FontStyle.Bold, GraphicsUnit.Pixel);
 
-        (string pillText, Color pillBg, Color pillFg, Color pillBorder) = GetOverallPill(_snapshot);
+        (string pillText, Color pillBg, Color pillFg, Color pillBorder) = GetOverallPill(snapshot);
         SizeF pillTextSize = g.MeasureString(pillText, badgeFont);
         float pillWidth = pillTextSize.Width + (14f * s);
         float pillHeight = 22f * s;
-        var pillRect = new RectangleF(Width - pad - pillWidth, y + (4f * s), pillWidth, pillHeight);
+        var pillRect = new RectangleF(width - pad - pillWidth, y + (4f * s), pillWidth, pillHeight);
 
         using (GraphicsPath pillPath = CreateRoundPath(pillRect, pillHeight / 2f))
         using (var pillBrush = new SolidBrush(pillBg))
@@ -244,11 +284,11 @@ public sealed partial class StatusFlyoutForm : Form
         {
             var titleRect = new RectangleF(titleLeft, y + (1f * s), titleMaxWidth, 22f * s);
             var sfTrim = new StringFormat { Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap };
-            g.DrawString(_snapshot.DeviceDisplayName, titleFont, primaryInkBrush, titleRect, sfTrim);
+            g.DrawString(snapshot.DeviceDisplayName, titleFont, primaryInkBrush, titleRect, sfTrim);
 
-            string subtitle = _snapshot.DonglePresent && !string.IsNullOrWhiteSpace(_snapshot.DongleVidPid)
-                ? $"SteelSeries Wireless · USB {_snapshot.DongleVidPid}"
-                : _snapshot.WindowsBluetoothConnected
+            string subtitle = snapshot.DonglePresent && !string.IsNullOrWhiteSpace(snapshot.DongleVidPid)
+                ? $"SteelSeries Wireless · USB {snapshot.DongleVidPid}"
+                : snapshot.WindowsBluetoothConnected
                     ? "SteelSeries Wireless · PC Bluetooth"
                     : "SteelSeries Arctis Nova 7 Status";
             g.DrawString(subtitle, subFont, subtitleBrush, new RectangleF(titleLeft, y + (22f * s), titleMaxWidth + pillWidth, 18f * s), sfTrim);
@@ -259,55 +299,55 @@ public sealed partial class StatusFlyoutForm : Form
         // Status rows
         float rowHeight = 40f * s;
         float rowGap = 7f * s;
-        float rowWidth = Width - (pad * 2f);
+        float rowWidth = width - (pad * 2f);
 
-        (string pcText, Color pcDot) = FormatPcRow(_snapshot);
+        (string pcText, Color pcDot) = FormatPcRow(snapshot);
         DrawStatusRow(g, new RectangleF(pad, y, rowWidth, rowHeight), "PC 2.4GHz / Link", pcText, pcDot, rowLabelFont, rowValueFont, s);
         y += rowHeight + rowGap;
 
-        (string dongleText, Color dongleDot) = FormatDongleRow(_snapshot);
+        (string dongleText, Color dongleDot) = FormatDongleRow(snapshot);
         DrawStatusRow(g, new RectangleF(pad, y, rowWidth, rowHeight), "USB Dongle", dongleText, dongleDot, rowLabelFont, rowValueFont, s);
         y += rowHeight + rowGap;
 
-        (string btText, Color btDot, bool btHollow) = FormatBluetoothRow(_snapshot);
+        (string btText, Color btDot, bool btHollow) = FormatBluetoothRow(snapshot);
         DrawStatusRow(g, new RectangleF(pad, y, rowWidth, rowHeight), "Bluetooth", btText, btDot, rowLabelFont, rowValueFont, s, btHollow);
         y += rowHeight + rowGap;
 
-        DrawBatteryRow(g, new RectangleF(pad, y, rowWidth, rowHeight + (4f * s)), _snapshot, rowLabelFont, rowValueFont, s);
+        DrawBatteryRow(g, new RectangleF(pad, y, rowWidth, rowHeight + (4f * s)), snapshot, rowLabelFont, rowValueFont, s);
 
         // Footer: timestamp + Refresh button
         float btnW = 92f * s;
         float btnH = 28f * s;
-        _refreshButtonBounds = new RectangleF(Width - pad - btnW, Height - pad - btnH + (2f * s), btnW, btnH);
+        refreshButtonBounds = new RectangleF(width - pad - btnW, height - pad - btnH + (2f * s), btnW, btnH);
 
         using (var timestampBrush = new SolidBrush(Color.FromArgb(100, 116, 139))) // #64748B
         {
-            string updated = $"Updated {_snapshot.Timestamp.LocalDateTime:HH:mm:ss}";
-            g.DrawString(updated, subFont, timestampBrush, pad, _refreshButtonBounds.Top + (6f * s));
+            string updated = $"Updated {snapshot.Timestamp.LocalDateTime:HH:mm:ss}";
+            g.DrawString(updated, subFont, timestampBrush, pad, refreshButtonBounds.Top + (6f * s));
         }
 
-        Color btnFill = _isRefreshing
+        Color btnFill = isRefreshing
             ? Color.FromArgb(239, 246, 255) // #EFF6FF
-            : _refreshHovered
+            : refreshHovered
                 ? Color.FromArgb(241, 245, 249) // #F1F5F9
                 : Color.FromArgb(255, 255, 255); // #FFFFFF
-        Color btnBorder = _isRefreshing || _refreshHovered
+        Color btnBorder = isRefreshing || refreshHovered
             ? Color.FromArgb(59, 130, 246) // #3B82F6
             : Color.FromArgb(203, 213, 225); // #CBD5E1
-        Color btnText = _isRefreshing
+        Color btnText = isRefreshing
             ? Color.FromArgb(29, 78, 216) // #1D4ED8
             : Color.FromArgb(15, 23, 42); // #0F172A
 
-        using (GraphicsPath btnPath = CreateRoundPath(_refreshButtonBounds, 6f * s))
+        using (GraphicsPath btnPath = CreateRoundPath(refreshButtonBounds, 6f * s))
         using (var btnBrush = new SolidBrush(btnFill))
         using (var btnPen = new Pen(btnBorder, 1f * s))
         using (var btnTextBrush = new SolidBrush(btnText))
         {
             g.FillPath(btnBrush, btnPath);
             g.DrawPath(btnPen, btnPath);
-            string btnLabel = _isRefreshing ? "Refreshing..." : "Refresh";
+            string btnLabel = isRefreshing ? "Refreshing..." : "Refresh";
             var sfCenter = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-            g.DrawString(btnLabel, badgeFont, btnTextBrush, _refreshButtonBounds, sfCenter);
+            g.DrawString(btnLabel, badgeFont, btnTextBrush, refreshButtonBounds, sfCenter);
         }
     }
 

@@ -1,95 +1,125 @@
-# Arctis Nova 7 System Tray (`arctis-nova-tray`)
+# Arctis Nova 7 System Tray
 
-Lightweight, self-contained Windows 11 system tray indicator for **SteelSeries Arctis Nova 7** headsets. Built on `net9.0-windows` with pure Win32 HID and Bluetooth PnP interop (`hid.dll`, `setupapi.dll`, `cfgmgr32.dll`) and zero external NuGet dependencies.
+![Arctis Nova 7 System Tray overview](docs/images/hero-banner.png)
 
----
-
-## Visual Tray States
-
-Icons render dynamically at system tray DPI (`16x16` to `64x64`) in a clean Windows 11 light-mode palette with cached `HICON` handles so background polling allocates zero GDI handles.
-
-| Headset Base Icon | Corner Badge | Meaning |
-| :--- | :--- | :--- |
-| **Solid Green Headset** | *(None)* | **PC Connected** (2.4GHz wireless active), headset **Bluetooth OFF** |
-| **Solid Green Headset** | **Hollow Blue Ring** | **PC Connected** (2.4GHz wireless active), headset **Bluetooth ON (Standby / Unpaired)** |
-| **Solid Green Headset** | **Solid Bright Blue Badge** | **PC Connected** (2.4GHz wireless or PC Bluetooth) + **Bluetooth Connected** (phone or PC) |
-| **Hollow Amber Headset** | *(None)* | **USB Dongle Plugged In**, headset **Powered OFF / Sleeping / Out of Range** |
-| **Muted Slate Headset + Red Slash & Dot** | *(None)* | **Disconnected** (USB dongle unplugged and no active PC Bluetooth connection) |
-
-### Tray Interactions & Launch Behavior
-- **Immediate Visual Feedback on Launch & Re-Launch**: Launching `.\scripts\Start-ArctisNovaTray.ps1` (or `ArctisNovaTray.exe`) automatically pops open the clean Windows 11 light-mode **Status Card** in the bottom-right corner of your primary screen right after the initial hardware probe (pass `-Silent` / `--silent` to suppress the startup popup). Running it again while already running signals the active instance (`Local\ArctisNovaTray_ShowCard_v1`) to refresh and bring the Status Card to the front.
-- **Pinning the Icon on Windows 11**: Windows 11 places newly registered tray icons inside the taskbar `^` overflow menu by default. Click `^` near the system clock and drag the headset icon onto the main taskbar to keep it permanently visible.
-- **Hover Tooltip**: Concise summary (`< 63` chars) showing PC link state, Bluetooth state, and battery percentage / charging status (for example: `Nova 7: PC 2.4GHz | BT Connected | 84%`).
-- **Left-Click**: Opens the compact light-themed Status Card near the system tray showing PC 2.4GHz link status, USB dongle presence (`VID:PID`), Bluetooth state, battery progress bar, last-updated timestamp, and a `Refresh` button.
-- **Right-Click**: Opens a clean light-themed context menu with `Status summary`, `Open Status Card`, `Refresh Now`, and `Exit`.
+**[Download v1.0.0](https://github.com/JReames/arctis-nova-tray/releases/latest)** · **[Visual Guide](docs/VISUAL-GUIDE.md)** · **[MIT License](LICENSE)** · **Windows 11 (.NET 9, zero external packages)**
 
 ---
 
-## How Detection Works
+## Why I Built This
 
-1. **USB 2.4GHz Wireless Dongle (`Win32HidInterop` + `Nova7HidProtocol`)**:
-   - Enumerates SteelSeries (`VID_1038`) wireless transmitter dongles across all 15 Arctis Nova 7 family PIDs (`0x22A1`, `0x227E`, `0x22A7`, `0x2298`, `0x2258`, `0x229E`, `0x22AD`, `0x22A5`, `0x22A9`, `0x2202`, `0x2206`, `0x22A4`, `0x220A`, `0x223A`, `0x227A`) on vendor control collection `UsagePage = 0xFFC0, Usage = 0x0001` (`MI_03`).
-   - Opens the HID interface with `FILE_SHARE_READ | FILE_SHARE_WRITE` and non-blocking overlapped I/O (`<= 220ms` timeout, reading up to 4 frames until `0xB0` echo arrives) so it coexists peacefully alongside SteelSeries GG and Sonar.
-   - Decodes the `0xB0` status report:
-     - `inBuf[2] == 0x03`: Headset powered ON and linked to the 2.4GHz dongle (`0x02` = offline / powered off; ignores cached `100%` dongle battery byte when offline).
-     - `inBuf[3]`: Battery level (`0-100%` direct on Gen 2 / 2026 refresh PIDs such as `0x22A1`; `0-4` steps mapped to `0-100%` on Gen 1 PIDs such as `0x2202`).
-     - `inBuf[4]`: Charging indicator (`0x01`/`0x02` = charging).
-     - `inBuf[7]`: Headset Bluetooth radio state on Gen 2 / 2026 refresh firmware (`0x00` = OFF, `0x03` = ON Standby, `0x02` = ON & Connected, even when Bluetooth is paired to a phone rather than the PC).
-2. **Windows Native Bluetooth Fallback (`Win32BluetoothProbe`)**:
-   - Queries `BTH\DEV_*` and `BTHLE\DEV_*` PnP device nodes in-process via `cfgmgr32.dll` (`DEVPKEY_Device_FriendlyName` and `DEVPKEY_Device_IsConnected`).
-   - Detects when the headset is actively connected to the PC via Bluetooth even when the 2.4GHz USB dongle is unplugged or the 2.4GHz radio is turned off.
-3. **Event-Driven + Low-Overhead Background Refresh**:
-   - Polls on a background timer every `2.5s` and listens for `WM_DEVICECHANGE` USB HID and Bluetooth PnP events for instant hotplug updates.
+If you use a SteelSeries Arctis Nova 7 with its USB-C wireless receiver, Windows has one annoying habit: as long as that receiver is plugged in, Windows claims your headphones are "connected" even when the headset is turned off on your desk. You only find out otherwise when audio vanishes into thin air, or when you realize the next morning that you forgot to power the headset off.
+
+On top of that, there is no native taskbar indicator showing whether your headset is simultaneously paired to your phone over Bluetooth, or how much battery you have left, without opening the full SteelSeries GG window.
+
+**Arctis Nova 7 System Tray** puts a tiny, crisp indicator right next to your Windows 11 clock:
+- Shows whether your headset is **actually powered on** or just sitting off while the USB receiver stays plugged in.
+- Shows **Bluetooth status** in the corner of the icon, including when your headset is connected to your **phone** at the same time as your PC.
+- Shows **live battery percentage and charging state** on hover or with a single left-click.
+- Runs alongside **SteelSeries GG and Sonar** without locking audio or USB devices, and writes nothing to `%APPDATA%`, the registry, or Windows Startup folders.
 
 ---
 
-## Quick Start & Helper Scripts
+## Get Running in 30 Seconds
 
-Requires the [.NET 9 Windows Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0) (or .NET 9 SDK when building from source). Run from the unzipped release folder or repository root:
+> **Prerequisite**: [.NET 9 Windows Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0) (already installed on most developer machines with .NET 9).
+
+1. **Download & unzip**: Grab **`ArctisNovaTray-v1.0.0-win-x64.zip`** from the [Releases page](https://github.com/JReames/arctis-nova-tray/releases/latest) and extract it anywhere you keep utilities.
+2. **Launch it**: Double-click **`ArctisNovaTray.exe`** (or run `.\Start-ArctisNovaTray.ps1`). The light-mode Status Card pops open in the bottom-right corner right after the first hardware check so you know it is running.
+3. **Pin the icon once**: Click the **`^`** hidden-icons arrow near your Windows 11 clock and drag the headset icon onto your taskbar so it stays visible all day.
+
+Left-click the tray icon anytime to open the Status Card, hover for a quick text summary (`Nova 7: PC 2.4GHz | BT Connected | 86%`), or right-click to refresh or exit.
+
+---
+
+## At-a-Glance Visual Guide
+
+Two visual layers tell the whole story: the **headset color** shows your PC connection, and the **bottom-right badge** shows Bluetooth.
+
+![Tray Icon Visual Cheat Sheet](docs/images/visual-guide.png)
+
+| Icon | State | What It Means |
+| :---: | :--- | :--- |
+| ![PC + Bluetooth Connected](docs/images/icons/pc-connected-bt-connected.png) | **PC + Bluetooth Connected** | Headset is awake on 2.4GHz (or PC Bluetooth) and connected to your phone or PC over Bluetooth. |
+| ![PC Connected, Bluetooth Standby](docs/images/icons/pc-connected-bt-on.png) | **PC Connected, Bluetooth Standby** | Headset is awake on 2.4GHz. Bluetooth on the headset is switched on, waiting to connect. |
+| ![PC Connected Only](docs/images/icons/pc-connected-bt-off.png) | **PC Connected Only** | Headset is awake on 2.4GHz wireless, and Bluetooth on the headset is turned off. |
+| ![Headset Off, Dongle Plugged In](docs/images/icons/dongle-only-headset-off.png) | **Headset Off, Dongle Plugged In** | USB-C receiver is plugged into your PC, **but the headset is powered off or asleep**. |
+| ![Disconnected](docs/images/icons/disconnected.png) | **Disconnected** | USB-C receiver is unplugged and the headset is not connected to this PC over Bluetooth. |
+
+Want the full tour of the popup Status Card, taskbar pinning tips, and everyday scenarios? Read the **[Visual Guide](docs/VISUAL-GUIDE.md)**.
+
+---
+
+## PowerShell Helpers & Options
+
+If you prefer launching or scripting from a terminal, the included PowerShell scripts work from both the unzipped release folder and a git checkout:
 
 ```powershell
-# Start the tray app and pop open the Status Card (if already running, brings the Status Card to the front)
-.\scripts\Start-ArctisNovaTray.ps1
+# Launch the tray app and pop open the Status Card (or bring it to the front if already running)
+.\Start-ArctisNovaTray.ps1
 
-# Start silently in the tray without opening the Status Card on launch
+# Launch quietly in the tray without opening the Status Card on startup (handy for login scripts)
 .\scripts\Start-ArctisNovaTray.ps1 -Silent
 
-# Cleanly stop any running instance and start a fresh one
+# Cleanly stop a running instance and start a fresh one
 .\scripts\Start-ArctisNovaTray.ps1 -Restart
 
-# Query live headset status from PowerShell as a structured object (or pass -RawJson for raw JSON text)
+# Check your headset status right in PowerShell (returns a structured object, or JSON with -RawJson)
 .\scripts\Get-ArctisNovaStatus.ps1
 .\scripts\Get-ArctisNovaStatus.ps1 -RawJson
 
-# Gracefully stop the running tray app (removes tray icon cleanly before exit)
+# Stop the running tray app cleanly (removes the tray icon before exiting)
 .\scripts\Stop-ArctisNovaTray.ps1
 ```
 
-> **Note on Non-Interactive / Sandboxed Shells**: Before acquiring the single-instance mutex, `ArctisNovaTray.exe` checks `FindWindowW("Shell_TrayWnd", null)` to verify an interactive Windows `explorer.exe` taskbar is reachable, returning exit code `3` otherwise so a headless background runner can never squat on the mutex without a visible tray icon. Automated tests in headless environments can pass `--allow-headless` (`-AllowHeadless`).
-
 ---
 
-## CLI Diagnostic & Build Commands
+## How It Works Under the Hood
 
-CLI flags run before the single-instance check, so they work whether or not the tray indicator is already running. Because `ArctisNovaTray.exe` is compiled as `<OutputType>WinExe</OutputType>`, PowerShell callers invoking `.exe` directly should either use `.\scripts\Get-ArctisNovaStatus.ps1` or pipe through `| Out-String` so PowerShell waits synchronously for stdout:
+This app is plain C# (`net9.0-windows` WinForms + GDI+) talking directly to Windows (`hid.dll`, `setupapi.dll`, `cfgmgr32.dll`, `kernel32.dll`, `user32.dll`) with **zero NuGet dependencies**.
+
+<details>
+<summary><strong>USB HID protocol, Bluetooth fallback, CLI flags, and building from source</strong></summary>
+
+### 1. USB-C 2.4GHz Receiver Probing (`Win32HidInterop` + `Nova7HidProtocol`)
+- Scans SteelSeries (`VID_1038`) wireless receivers across all **15 Arctis Nova 7 family PIDs** (`0x22A1`, `0x227E`, `0x22A7`, `0x2298`, `0x2258`, `0x229E`, `0x22AD`, `0x22A5`, `0x22A9`, `0x2202`, `0x2206`, `0x22A4`, `0x220A`, `0x223A`, `0x227A`) on vendor control collection `UsagePage = 0xFFC0, Usage = 0x0001` (`MI_03`).
+- Opens the HID path with `FILE_SHARE_READ | FILE_SHARE_WRITE` and short overlapped I/O timeouts (`<= 220ms`, reading up to 4 frames until the `0xB0` response arrives) so it never blocks or fights with SteelSeries GG.
+- Sends the 65-byte `[0x00, 0xB0, ...]` status request and reads:
+  - `inBuf[2]`: `0x03` when the headset is powered on and linked over 2.4GHz; `0x02` when powered off or asleep (suppressing cached `100%` receiver bytes when offline).
+  - `inBuf[3]`: Battery level (`0-100%` direct on Gen 2 / 2026 refresh hardware such as `0x22A1`; `0-4` steps mapped to `0-100%` on original Nova 7 PIDs such as `0x2202`).
+  - `inBuf[4]`: Charging flag (`0x01` / `0x02` = charging).
+  - `inBuf[7]`: Headset Bluetooth radio state on Gen 2 / 2026 refresh firmware (`0x00` = OFF, `0x03` = ON Standby, `0x02` = ON & Connected, even when paired to a phone).
+
+### 2. Native Windows Bluetooth Fallback (`Win32BluetoothProbe`)
+- Queries `BTH\DEV_*` and `BTHLE\DEV_*` PnP device nodes in-process through `cfgmgr32.dll` (`DEVPKEY_Device_FriendlyName` and `DEVPKEY_Device_IsConnected`).
+- Tracks direct PC Bluetooth connections even when the 2.4GHz USB-C receiver is unplugged.
+
+### 3. Low-Overhead Refresh & Safety Guards
+- Polls in the background every `2.5s` and reacts immediately to `WM_DEVICECHANGE` USB and Bluetooth hotplug events.
+- Caches rendered `HICON` handles per visual state and destroys raw `Bitmap.GetHicon()` handles immediately so background polling leaks zero GDI objects.
+- Checks `FindWindowW("Shell_TrayWnd", null)` before acquiring `Local\ArctisNovaTray_SingleInstance_v1` (returning exit code `3` if no interactive desktop taskbar exists, unless `--allow-headless` is passed for automated tests).
+
+### 4. CLI Diagnostic Flags & Building from Source
 
 ```powershell
-# Probe live hardware once via the PowerShell wrapper (parsed object or -RawJson)
-.\scripts\Get-ArctisNovaStatus.ps1 -RawJson
+# Build Debug and Release completely offline (0 warnings, 0 errors)
+dotnet build .\ArctisNovaTray.sln -c Debug
+dotnet build .\ArctisNovaTray.sln -c Release
 
-# Or invoke the Release WinExe directly with pipeline synchronization
+# Run the 10-case unit and live-hardware test suite
+dotnet run --project .\tests\arctis-nova-tray-tests\ArctisNovaTray.Tests.csproj -c Release
+
+# Probe live hardware JSON directly from the WinExe (pipe to Out-String so PowerShell waits)
 & .\src\arctis-nova-tray\bin\Release\net9.0-windows\ArctisNovaTray.exe --status-json | Out-String
 
-# Export all 5 canonical icon states at 16x16, 32x32, and 64x64 PNGs
+# Export all 5 canonical tray icon states at 16x16, 32x32, and 64x64 PNGs
 & .\src\arctis-nova-tray\bin\Release\net9.0-windows\ArctisNovaTray.exe --export-icons .\artifacts\icons | Out-String
 
-# Build the entire solution offline in Release and Debug (0 warnings, 0 errors)
-dotnet build .\ArctisNovaTray.sln -c Release
-dotnet build .\ArctisNovaTray.sln -c Debug
-
-# Run the deterministic unit and live-probe test suite
-dotnet run --project .\tests\arctis-nova-tray-tests\ArctisNovaTray.Tests.csproj -c Release
+# Regenerate documentation diagrams and inline 48x48 icons in docs/images/
+dotnet run --project .\tests\arctis-nova-tray-tests\ArctisNovaTray.Tests.csproj -c Release -- --generate-docs .
 ```
+
+</details>
 
 ---
 
