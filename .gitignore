@@ -1,0 +1,18 @@
+# Build outputs
+[Bb]in/
+[Oo]bj/
+out/
+publish/
+artifacts/
+
+# Local runtime state, archives, and logs
+logs/
+*.log
+*.local.*
+*.zip
+
+# IDE / editor state
+.vs/
+.vscode/
+*.user
+*.suo
