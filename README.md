@@ -2,7 +2,7 @@
 
 ![Arctis Nova 7 System Tray overview](docs/images/hero-banner.png)
 
-**[Download v1.0.0](https://github.com/JReames/arctis-nova-tray/releases/latest)** · **[Visual Guide](docs/VISUAL-GUIDE.md)** · **[MIT License](LICENSE)** · **Windows 11 (.NET 9, zero external packages)**
+**[Download v1.1.0](https://github.com/JReames/arctis-nova-tray/releases/latest)** · **[Visual Guide](docs/VISUAL-GUIDE.md)** · **[MIT License](LICENSE)** · **Windows 11 (.NET 9, zero external packages)**
 
 ---
 
@@ -13,9 +13,9 @@ If you use a SteelSeries Arctis Nova 7 with its USB-C wireless receiver, Windows
 On top of that, there is no native taskbar indicator showing whether your headset is simultaneously paired to your phone over Bluetooth, or how much battery you have left, without opening the full SteelSeries GG window.
 
 **Arctis Nova 7 System Tray** puts a tiny, crisp indicator right next to your Windows 11 clock:
-- Shows whether your headset is **actually powered on** or just sitting off while the USB receiver stays plugged in.
+- Shows whether your headset is **actually powered on** or just sitting off while the USB receiver stays plugged in, with adaptive dark and light taskbar contrast.
 - Shows **Bluetooth status** in the corner of the icon, including when your headset is connected to your **phone** at the same time as your PC.
-- Shows **live battery percentage and charging state** on hover or with a single left-click.
+- Shows **live battery percentage, charging state, and hardware mic-mute status** on hover or with a single left-click.
 - Runs alongside **SteelSeries GG and Sonar** without locking audio or USB devices, and writes nothing to `%APPDATA%`, the registry, or Windows Startup folders.
 
 ---
@@ -24,26 +24,26 @@ On top of that, there is no native taskbar indicator showing whether your headse
 
 > **Prerequisite**: [.NET 9 Windows Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0) (already installed on most developer machines with .NET 9).
 
-1. **Download & unzip**: Grab **`ArctisNovaTray-v1.0.0-win-x64.zip`** from the [Releases page](https://github.com/JReames/arctis-nova-tray/releases/latest) and extract it anywhere you keep utilities.
+1. **Download & unzip**: Grab **`ArctisNovaTray-v1.1.0-win-x64.zip`** from the [Releases page](https://github.com/JReames/arctis-nova-tray/releases/latest) and extract it anywhere you keep utilities.
 2. **Launch it**: Double-click **`ArctisNovaTray.exe`** (or run `.\Start-ArctisNovaTray.ps1`). The light-mode Status Card pops open in the bottom-right corner right after the first hardware check so you know it is running.
 3. **Pin the icon once**: Click the **`^`** hidden-icons arrow near your Windows 11 clock and drag the headset icon onto your taskbar so it stays visible all day.
 
-Left-click the tray icon anytime to open the Status Card, hover for a quick text summary (`Nova 7: PC 2.4GHz | BT Connected | 86%`), or right-click to refresh or exit.
+Left-click the tray icon anytime to open the Status Card (`Tab`, `F5`, and `Esc` work from the keyboard), hover for a quick text summary (`Nova 7: PC 2.4GHz | BT Connected | 86%`), or right-click to check status, refresh, or exit.
 
 ---
 
 ## At-a-Glance Visual Guide
 
-Two visual layers tell the whole story: the **headset color** shows your PC connection, and the **bottom-right badge** shows Bluetooth.
+Two visual layers tell the whole story on both dark and light Windows 11 taskbars: the **headset color** shows your PC connection, and the **bottom-right badge** shows Bluetooth.
 
 ![Tray Icon Visual Cheat Sheet](docs/images/visual-guide.png)
 
 | Icon | State | What It Means |
 | :---: | :--- | :--- |
-| ![PC + Bluetooth Connected](docs/images/icons/pc-connected-bt-connected.png) | **PC + Bluetooth Connected** | Headset is awake on 2.4GHz (or PC Bluetooth) and connected to your phone or PC over Bluetooth. |
-| ![PC Connected, Bluetooth Standby](docs/images/icons/pc-connected-bt-on.png) | **PC Connected, Bluetooth Standby** | Headset is awake on 2.4GHz. Bluetooth on the headset is switched on, waiting to connect. |
-| ![PC Connected Only](docs/images/icons/pc-connected-bt-off.png) | **PC Connected Only** | Headset is awake on 2.4GHz wireless, and Bluetooth on the headset is turned off. |
-| ![Headset Off, Dongle Plugged In](docs/images/icons/dongle-only-headset-off.png) | **Headset Off, Dongle Plugged In** | USB-C receiver is plugged into your PC, **but the headset is powered off or asleep**. |
+| ![PC + Bluetooth Connected](docs/images/icons/pc-connected-bt-connected.png) | **PC + Bluetooth Connected** | Headset is awake on 2.4 GHz (or PC Bluetooth) and connected to your phone or PC over Bluetooth. |
+| ![PC Connected, Bluetooth Waiting](docs/images/icons/pc-connected-bt-on.png) | **PC Connected, Bluetooth Waiting** | Headset is awake on 2.4 GHz. Bluetooth on the headset is switched on, waiting to connect. |
+| ![PC Connected Only](docs/images/icons/pc-connected-bt-off.png) | **PC Connected Only** | Headset is awake on 2.4 GHz wireless, and Bluetooth on the headset is turned off. |
+| ![Headset Off, Receiver Plugged In](docs/images/icons/dongle-only-headset-off.png) | **Headset Off, Receiver Plugged In** | USB-C receiver is plugged into your PC, **but the headset is powered off or asleep**. |
 | ![Disconnected](docs/images/icons/disconnected.png) | **Disconnected** | USB-C receiver is unplugged and the headset is not connected to this PC over Bluetooth. |
 
 Want the full tour of the popup Status Card, taskbar pinning tips, and everyday scenarios? Read the **[Visual Guide](docs/VISUAL-GUIDE.md)**.
@@ -88,7 +88,8 @@ This app is plain C# (`net9.0-windows` WinForms + GDI+) talking directly to Wind
   - `inBuf[2]`: `0x03` when the headset is powered on and linked over 2.4GHz; `0x02` when powered off or asleep (suppressing cached `100%` receiver bytes when offline).
   - `inBuf[3]`: Battery level (`0-100%` direct on Gen 2 / 2026 refresh hardware such as `0x22A1`; `0-4` steps mapped to `0-100%` on original Nova 7 PIDs such as `0x2202`).
   - `inBuf[4]`: Charging flag (`0x01` / `0x02` = charging).
-  - `inBuf[7]`: Headset Bluetooth radio state on Gen 2 / 2026 refresh firmware (`0x00` = OFF, `0x03` = ON Standby, `0x02` = ON & Connected, even when paired to a phone).
+  - `inBuf[7]`: Headset Bluetooth radio state on Gen 2 / 2026 refresh firmware (`0x00` = OFF, `0x03` = ON Waiting, `0x02` = ON & Connected, even when paired to a phone).
+  - `inBuf[10]`: Hardware boom-mic mute flag on Gen 2 / 2026 refresh firmware (`0x01` = muted, shown as an inline `MIC MUTED` pill in the Status Card).
 
 ### 2. Native Windows Bluetooth Fallback (`Win32BluetoothProbe`)
 - Queries `BTH\DEV_*` and `BTHLE\DEV_*` PnP device nodes in-process through `cfgmgr32.dll` (`DEVPKEY_Device_FriendlyName` and `DEVPKEY_Device_IsConnected`).
@@ -106,7 +107,7 @@ This app is plain C# (`net9.0-windows` WinForms + GDI+) talking directly to Wind
 dotnet build .\ArctisNovaTray.sln -c Debug
 dotnet build .\ArctisNovaTray.sln -c Release
 
-# Run the 10-case unit and live-hardware test suite
+# Run the 11-case unit, pixel-contrast, and live-hardware test suite
 dotnet run --project .\tests\arctis-nova-tray-tests\ArctisNovaTray.Tests.csproj -c Release
 
 # Probe live hardware JSON directly from the WinExe (pipe to Out-String so PowerShell waits)

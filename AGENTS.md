@@ -8,8 +8,8 @@
 - **Sources of Truth**:
   - HID vendor protocol constants and byte decoding: `src/arctis-nova-tray/protocol/Nova7HidProtocol.cs`
   - Win32 HID and Windows Bluetooth PnP probing: `src/arctis-nova-tray/hardware/`
-  - Light-mode DPI-aware GDI+ icon rendering and `HICON` lifecycle: `src/arctis-nova-tray/rendering/`
-  - Light-mode status flyout card and tray context menu: `src/arctis-nova-tray/ui/`
+  - Dark- and light-taskbar adaptive DPI-aware GDI+ icon rendering and `HICON` lifecycle: `src/arctis-nova-tray/rendering/`
+  - WCAG AA/AAA light-mode status flyout card (`436x392` logical) and tray context menu: `src/arctis-nova-tray/ui/`
   - Human-facing usage, visual cheat sheet, and CLI documentation: `README.md` and `docs/VISUAL-GUIDE.md`
 
 ## 3. Behavior-Changing Local Rules

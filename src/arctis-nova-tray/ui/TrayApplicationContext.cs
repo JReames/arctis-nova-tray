@@ -8,6 +8,14 @@ public sealed class TrayApplicationContext : ApplicationContext
     public const string ShutdownEventName = @"Local\ArctisNovaTray_Shutdown_v1";
     public const string ShowCardEventName = @"Local\ArctisNovaTray_ShowCard_v1";
 
+    public static readonly Color MenuSurfaceColor = Color.FromArgb(255, 255, 255);    // #FFFFFF
+    public static readonly Color MenuOuterBorderColor = Color.FromArgb(100, 116, 139); // #64748B (4.76:1)
+    public static readonly Color MenuHoverFillColor = Color.FromArgb(239, 246, 255);   // #EFF6FF
+    public static readonly Color MenuHoverBorderColor = Color.FromArgb(37, 99, 235);   // #2563EB (4.9:1)
+    public static readonly Color MenuSeparatorColor = Color.FromArgb(148, 163, 184);   // #94A3B8 (2.56:1)
+    public static readonly Color MenuPrimaryInkColor = Color.FromArgb(15, 23, 42);     // #0F172A (18.2:1)
+    public static readonly Color MenuHeaderInkColor = Color.FromArgb(51, 65, 85);      // #334155 (10.3:1)
+
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(2500);
     private static readonly TimeSpan HotplugDebounce = TimeSpan.FromMilliseconds(350);
 
@@ -16,6 +24,8 @@ public sealed class TrayApplicationContext : ApplicationContext
     private readonly TrayIconCache _iconCache = new();
     private readonly NotifyIcon _notifyIcon;
     private readonly ContextMenuStrip _contextMenu;
+    private readonly Font _menuFont;
+    private readonly Font _menuPrimaryFont;
     private readonly ToolStripMenuItem _summaryMenuItem;
     private readonly StatusFlyoutForm _flyout;
     private readonly DeviceChangeMonitor _deviceMonitor;
@@ -39,37 +49,54 @@ public sealed class TrayApplicationContext : ApplicationContext
         _showCardOnFirstProbe = showCardOnStartup;
         _uiContext = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
 
-        _summaryMenuItem = new ToolStripMenuItem("Status: Checking...")
+        _menuFont = new Font("Segoe UI", 10f, FontStyle.Regular, GraphicsUnit.Point);
+        _menuPrimaryFont = new Font("Segoe UI Semibold", 10f, FontStyle.Bold, GraphicsUnit.Point);
+        var itemPadding = new Padding(12, 7, 12, 7);
+
+        _summaryMenuItem = new ToolStripMenuItem("Checking headset status...")
         {
-            Enabled = false
+            Enabled = false,
+            Font = _menuFont,
+            Padding = itemPadding
         };
 
         var openCardItem = new ToolStripMenuItem("Open Status Card")
         {
-            Font = new Font(SystemFonts.MenuFont ?? SystemFonts.DefaultFont, FontStyle.Bold)
+            Font = _menuPrimaryFont,
+            Padding = itemPadding
         };
         openCardItem.Click += (_, _) => ShowStatusCardAtCursor();
 
-        var refreshItem = new ToolStripMenuItem("Refresh Now");
-        refreshItem.Click += (_, _) => _ = RefreshNowAsync();
+        var refreshItem = new ToolStripMenuItem("Refresh Now")
+        {
+            Font = _menuFont,
+            Padding = itemPadding
+        };
+        refreshItem.Click += (_, _) => _ = RefreshNowAsync(isManual: true);
 
-        var exitItem = new ToolStripMenuItem("Exit");
+        var exitItem = new ToolStripMenuItem("Exit")
+        {
+            Font = _menuFont,
+            Padding = itemPadding
+        };
         exitItem.Click += (_, _) => ExitThread();
 
         _contextMenu = new ContextMenuStrip
         {
             Renderer = new LightMenuRenderer(),
             ShowImageMargin = false,
-            BackColor = Color.FromArgb(255, 255, 255),
-            ForeColor = Color.FromArgb(15, 23, 42)
+            Font = _menuFont,
+            Padding = new Padding(4, 5, 4, 5),
+            BackColor = MenuSurfaceColor,
+            ForeColor = MenuPrimaryInkColor
         };
         _contextMenu.Items.AddRange(
         [
             _summaryMenuItem,
-            new ToolStripSeparator(),
+            new ToolStripSeparator { Margin = new Padding(8, 3, 8, 3) },
             openCardItem,
             refreshItem,
-            new ToolStripSeparator(),
+            new ToolStripSeparator { Margin = new Padding(8, 3, 8, 3) },
             exitItem
         ]);
 
@@ -87,7 +114,7 @@ public sealed class TrayApplicationContext : ApplicationContext
         _notifyIcon.MouseClick += OnNotifyIconMouseClick;
 
         _flyout = new StatusFlyoutForm();
-        _flyout.RefreshRequested += () => _ = RefreshNowAsync();
+        _flyout.RefreshRequested += () => _ = RefreshNowAsync(isManual: true);
 
         _deviceMonitor = new DeviceChangeMonitor();
         _deviceMonitor.DeviceChanged += OnDeviceChanged;
@@ -148,7 +175,7 @@ public sealed class TrayApplicationContext : ApplicationContext
 
     private void ShowStatusCardAtCursor()
     {
-        _flyout.UpdateSnapshot(_latestSnapshot, clearRefreshing: false);
+        _flyout.UpdateSnapshot(_latestSnapshot, isManualRefreshCompletion: false);
         _flyout.ShowNearPoint(Cursor.Position);
     }
 
@@ -159,9 +186,9 @@ public sealed class TrayApplicationContext : ApplicationContext
             return;
         }
 
-        _flyout.UpdateSnapshot(_latestSnapshot, clearRefreshing: false);
+        _flyout.UpdateSnapshot(_latestSnapshot, isManualRefreshCompletion: false);
         _flyout.ShowNearTrayArea();
-        _ = RefreshNowAsync();
+        _ = RefreshNowAsync(isManual: false);
     }
 
     private void OnDeviceChanged()
@@ -183,7 +210,7 @@ public sealed class TrayApplicationContext : ApplicationContext
                 await Task.Delay(HotplugDebounce, token).ConfigureAwait(false);
                 if (!token.IsCancellationRequested && !_cts.IsCancellationRequested)
                 {
-                    await ExecuteSingleProbeAsync(_cts.Token).ConfigureAwait(false);
+                    await ExecuteSingleProbeAsync(_cts.Token, isManual: false).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException)
@@ -192,19 +219,19 @@ public sealed class TrayApplicationContext : ApplicationContext
         }, CancellationToken.None);
     }
 
-    private Task RefreshNowAsync() =>
-        Task.Run(() => ExecuteSingleProbeAsync(_cts.Token), CancellationToken.None);
+    private Task RefreshNowAsync(bool isManual) =>
+        Task.Run(() => ExecuteSingleProbeAsync(_cts.Token, isManual), CancellationToken.None);
 
     private async Task RunPollLoopAsync(CancellationToken cancellationToken)
     {
-        await ExecuteSingleProbeAsync(cancellationToken).ConfigureAwait(false);
+        await ExecuteSingleProbeAsync(cancellationToken, isManual: false).ConfigureAwait(false);
 
         using var timer = new PeriodicTimer(PollInterval);
         try
         {
             while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
             {
-                await ExecuteSingleProbeAsync(cancellationToken).ConfigureAwait(false);
+                await ExecuteSingleProbeAsync(cancellationToken, isManual: false).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException)
@@ -212,14 +239,20 @@ public sealed class TrayApplicationContext : ApplicationContext
         }
     }
 
-    private async Task ExecuteSingleProbeAsync(CancellationToken cancellationToken)
+    private sealed record ProbeCompletion(HeadsetSnapshot Snapshot, bool IsManual);
+
+    private async Task ExecuteSingleProbeAsync(CancellationToken cancellationToken, bool isManual)
     {
         if (_disposed || cancellationToken.IsCancellationRequested)
         {
             return;
         }
 
-        if (!await _probeLock.WaitAsync(0, cancellationToken).ConfigureAwait(false))
+        if (isManual)
+        {
+            await _probeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        else if (!await _probeLock.WaitAsync(0, cancellationToken).ConfigureAwait(false))
         {
             return;
         }
@@ -229,7 +262,9 @@ public sealed class TrayApplicationContext : ApplicationContext
             HeadsetSnapshot snapshot = _probe.Probe();
             if (!_disposed && !cancellationToken.IsCancellationRequested)
             {
-                _uiContext.Post(state => ApplySnapshotOnUiThread((HeadsetSnapshot)state!), snapshot);
+                _uiContext.Post(
+                    state => ApplySnapshotOnUiThread((ProbeCompletion)state!),
+                    new ProbeCompletion(snapshot, isManual));
             }
         }
         catch (Exception ex)
@@ -243,7 +278,9 @@ public sealed class TrayApplicationContext : ApplicationContext
             };
             if (!_disposed)
             {
-                _uiContext.Post(state => ApplySnapshotOnUiThread((HeadsetSnapshot)state!), fallback);
+                _uiContext.Post(
+                    state => ApplySnapshotOnUiThread((ProbeCompletion)state!),
+                    new ProbeCompletion(fallback, isManual));
             }
         }
         finally
@@ -252,13 +289,14 @@ public sealed class TrayApplicationContext : ApplicationContext
         }
     }
 
-    private void ApplySnapshotOnUiThread(HeadsetSnapshot snapshot)
+    private void ApplySnapshotOnUiThread(ProbeCompletion completion)
     {
         if (_disposed)
         {
             return;
         }
 
+        HeadsetSnapshot snapshot = completion.Snapshot;
         _latestSnapshot = snapshot;
 
         int targetSize = TrayIconCache.GetSystemTrayIconSize();
@@ -278,7 +316,7 @@ public sealed class TrayApplicationContext : ApplicationContext
         }
 
         _summaryMenuItem.Text = TooltipFormatter.FormatMenuSummary(snapshot);
-        _flyout.UpdateSnapshot(snapshot);
+        _flyout.UpdateSnapshot(snapshot, isManualRefreshCompletion: completion.IsManual);
 
         if (_showCardOnFirstProbe)
         {
@@ -331,6 +369,8 @@ public sealed class TrayApplicationContext : ApplicationContext
 
         _flyout.Dispose();
         _contextMenu.Dispose();
+        _menuPrimaryFont.Dispose();
+        _menuFont.Dispose();
         _notifyIcon.Dispose();
         _iconCache.Dispose();
         _cts.Dispose();
@@ -342,24 +382,24 @@ public sealed class TrayApplicationContext : ApplicationContext
         protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
         {
             e.TextColor = e.Item.Enabled
-                ? Color.FromArgb(15, 23, 42)    // #0F172A
-                : Color.FromArgb(100, 116, 139); // #64748B
+                ? MenuPrimaryInkColor   // #0F172A (18.2:1 AAA)
+                : MenuHeaderInkColor;   // #334155 (10.3:1 AAA, crisp readable header)
             base.OnRenderItemText(e);
         }
     }
 
     private sealed class LightMenuColors : ProfessionalColorTable
     {
-        public override Color ToolStripDropDownBackground => Color.FromArgb(255, 255, 255); // #FFFFFF
-        public override Color MenuBorder => Color.FromArgb(203, 213, 225);                  // #CBD5E1
-        public override Color MenuItemBorder => Color.FromArgb(203, 213, 225);              // #CBD5E1
-        public override Color MenuItemSelected => Color.FromArgb(241, 245, 249);            // #F1F5F9
-        public override Color MenuItemSelectedGradientBegin => Color.FromArgb(241, 245, 249);
-        public override Color MenuItemSelectedGradientEnd => Color.FromArgb(241, 245, 249);
-        public override Color SeparatorDark => Color.FromArgb(226, 232, 240);               // #E2E8F0
-        public override Color SeparatorLight => Color.FromArgb(226, 232, 240);
-        public override Color ImageMarginGradientBegin => Color.FromArgb(255, 255, 255);
-        public override Color ImageMarginGradientMiddle => Color.FromArgb(255, 255, 255);
-        public override Color ImageMarginGradientEnd => Color.FromArgb(255, 255, 255);
+        public override Color ToolStripDropDownBackground => MenuSurfaceColor;
+        public override Color MenuBorder => MenuOuterBorderColor;
+        public override Color MenuItemBorder => MenuHoverBorderColor;
+        public override Color MenuItemSelected => MenuHoverFillColor;
+        public override Color MenuItemSelectedGradientBegin => MenuHoverFillColor;
+        public override Color MenuItemSelectedGradientEnd => MenuHoverFillColor;
+        public override Color SeparatorDark => MenuSeparatorColor;
+        public override Color SeparatorLight => MenuSeparatorColor;
+        public override Color ImageMarginGradientBegin => MenuSurfaceColor;
+        public override Color ImageMarginGradientMiddle => MenuSurfaceColor;
+        public override Color ImageMarginGradientEnd => MenuSurfaceColor;
     }
 }

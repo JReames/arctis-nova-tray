@@ -15,26 +15,28 @@ public static class TooltipFormatter
 
         string pcPart = snapshot.PcConnection switch
         {
-            PcConnectionState.Connected24Ghz => "PC 2.4GHz",
+            PcConnectionState.Connected24Ghz => "PC 2.4 GHz",
             PcConnectionState.ConnectedBluetooth => "PC BT",
-            PcConnectionState.DongleOnlyHeadsetOff => "Headset Off (Dongle)",
+            PcConnectionState.DongleOnlyHeadsetOff => "Headset Off (Receiver)",
             _ => "Disconnected"
         };
 
         string btPart = snapshot.Bluetooth switch
         {
             BluetoothState.Connected => "BT Connected",
-            BluetoothState.Standby => "BT On",
+            BluetoothState.Standby => "BT Waiting",
             _ => "BT Off"
         };
 
         string? batteryPart = FormatBatteryCompact(snapshot);
 
         string raw = snapshot.PcConnection == PcConnectionState.Disconnected && snapshot.Bluetooth == BluetoothState.Off
-            ? "Nova 7: Disconnected (No Dongle / BT)"
-            : batteryPart is not null
-                ? $"Nova 7: {pcPart} | {btPart} | {batteryPart}"
-                : $"Nova 7: {pcPart} | {btPart}";
+            ? "Nova 7: Disconnected (No Receiver / BT)"
+            : snapshot.PcConnection == PcConnectionState.DongleOnlyHeadsetOff && snapshot.Bluetooth == BluetoothState.Off
+                ? "Nova 7: Off or Asleep (Receiver In)"
+                : batteryPart is not null
+                    ? $"Nova 7: {pcPart} | {btPart} | {batteryPart}"
+                    : $"Nova 7: {pcPart} | {btPart}";
 
         return TruncateSafe(raw);
     }
@@ -43,22 +45,32 @@ public static class TooltipFormatter
     {
         ArgumentNullException.ThrowIfNull(snapshot);
 
+        if (snapshot.PcConnection == PcConnectionState.DongleOnlyHeadsetOff && snapshot.Bluetooth == BluetoothState.Off)
+        {
+            return "Headset Off or Asleep · Receiver In";
+        }
+
+        if (snapshot.PcConnection == PcConnectionState.Disconnected && snapshot.Bluetooth == BluetoothState.Off)
+        {
+            return "Headset Disconnected · Unplugged";
+        }
+
         string pcPart = snapshot.PcConnection switch
         {
-            PcConnectionState.Connected24Ghz => "PC Connected (2.4GHz)",
-            PcConnectionState.ConnectedBluetooth => "PC Connected (Bluetooth)",
-            PcConnectionState.DongleOnlyHeadsetOff => "Dongle Ready (Headset Off)",
+            PcConnectionState.Connected24Ghz => "Connected (2.4 GHz)",
+            PcConnectionState.ConnectedBluetooth => "Connected (Bluetooth)",
+            PcConnectionState.DongleOnlyHeadsetOff => "Headset Off",
             _ => "Disconnected"
         };
 
         string btPart = snapshot.Bluetooth switch
         {
             BluetoothState.Connected => "BT Connected",
-            BluetoothState.Standby => "BT Standby",
+            BluetoothState.Standby => "BT On (Waiting)",
             _ => "BT Off"
         };
 
-        string? battery = FormatBatteryCompact(snapshot);
+        string? battery = FormatBatteryReadable(snapshot);
         return battery is not null
             ? $"{pcPart} · {btPart} · {battery}"
             : $"{pcPart} · {btPart}";
@@ -83,12 +95,25 @@ public static class TooltipFormatter
     {
         if (snapshot.BatteryPercent is not int pct)
         {
-            return snapshot.Charging == BatteryChargingState.Charging ? "Chg" : null;
+            return snapshot.Charging == BatteryChargingState.Charging ? "Charging" : null;
         }
 
         int clamped = Math.Clamp(pct, 0, 100);
         return snapshot.Charging == BatteryChargingState.Charging
             ? $"{clamped}%+"
+            : $"{clamped}%";
+    }
+
+    private static string? FormatBatteryReadable(HeadsetSnapshot snapshot)
+    {
+        if (snapshot.BatteryPercent is not int pct)
+        {
+            return snapshot.Charging == BatteryChargingState.Charging ? "Charging" : null;
+        }
+
+        int clamped = Math.Clamp(pct, 0, 100);
+        return snapshot.Charging == BatteryChargingState.Charging
+            ? $"{clamped}% (Charging)"
             : $"{clamped}%";
     }
 }

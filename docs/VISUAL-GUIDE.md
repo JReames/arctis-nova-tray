@@ -10,40 +10,40 @@ This guide walks through every icon state, what each row in the popup Status Car
 
 ## How the Two Icon Layers Work
 
-Instead of forcing you to memorize cryptic symbols, the taskbar icon combines two simple visual layers:
+Instead of forcing you to memorize cryptic symbols, the taskbar icon combines two simple visual layers with dark outer contours so every state stays crisp on both dark (`#18181B`) and light (`#F3F4F6`) Windows 11 taskbars:
 
 1. **The Headset Color (Your PC Audio Link)**:
-   - **Solid Green**: Your headset is powered on and actively linked to your PC (over the 2.4GHz USB-C receiver, or directly over Windows Bluetooth).
-   - **Hollow Amber**: The USB-C wireless receiver is plugged into your PC, so Windows still sees an audio endpoint, **but the headset itself is turned off, asleep, or out of range**.
+   - **Solid Green**: Your headset is powered on and actively linked to your PC (over the 2.4 GHz USB-C receiver, or directly over Windows Bluetooth).
+   - **Hollow Amber**: The USB-C wireless receiver is plugged into your PC, so Windows still sees an audio endpoint, **but the headset itself is turned off, asleep, or out of range**. Even at `16x16`, both earcups keep genuine transparent centers so the hollow outline reads clearly against dark and light taskbars.
    - **Slate Gray with Red Slash**: The USB-C wireless receiver is unplugged and the headset is not connected to this PC over Bluetooth.
 2. **The Bottom-Right Badge (Your Bluetooth Radio)**:
-   - **Solid Bright Blue Badge**: Bluetooth is switched on and actively connected to a device (your phone, tablet, or PC).
-   - **Hollow Blue Ring**: Bluetooth is switched on inside the headset, sitting in standby and waiting to connect.
+   - **Solid Bright Blue Badge**: Bluetooth is switched on and actively connected to a device (your phone, tablet, or PC), with a crisp Bluetooth rune inside.
+   - **Hollow Blue Ring**: Bluetooth is switched on inside the headset, waiting to connect.
    - **No Badge**: Bluetooth on the headset is turned off.
 
 ### All Five Taskbar Icon States
 
 | Icon | State | Headset Base | Corner Badge | What It Means in Plain English |
 | :---: | :--- | :--- | :--- | :--- |
-| ![PC + Bluetooth Connected](images/icons/pc-connected-bt-connected.png) | **PC + Bluetooth Connected** | Solid green | Solid blue dot | Headset is awake on 2.4GHz (or PC Bluetooth) and also connected to your phone or PC over Bluetooth. |
-| ![PC Connected, Bluetooth Standby](images/icons/pc-connected-bt-on.png) | **PC Connected, Bluetooth Standby** | Solid green | Hollow blue ring | Headset is awake on 2.4GHz. Its Bluetooth radio is on, but nothing is currently connected to it. |
-| ![PC Connected Only](images/icons/pc-connected-bt-off.png) | **PC Connected Only** | Solid green | *(Hidden)* | Headset is awake on 2.4GHz wireless, and Bluetooth on the headset is turned off. |
-| ![Headset Off, Dongle Plugged In](images/icons/dongle-only-headset-off.png) | **Headset Off, Dongle Plugged In** | Hollow amber | *(Hidden)* | Your USB-C receiver is plugged into the PC, **but the headset is powered off or asleep**. |
+| ![PC + Bluetooth Connected](images/icons/pc-connected-bt-connected.png) | **PC + Bluetooth Connected** | Solid green | Solid blue dot | Headset is awake on 2.4 GHz (or PC Bluetooth) and also connected to your phone or PC over Bluetooth. |
+| ![PC Connected, Bluetooth Waiting](images/icons/pc-connected-bt-on.png) | **PC Connected, Bluetooth Waiting** | Solid green | Hollow blue ring | Headset is awake on 2.4 GHz. Its Bluetooth radio is switched on, waiting to connect. |
+| ![PC Connected Only](images/icons/pc-connected-bt-off.png) | **PC Connected Only** | Solid green | *(Hidden)* | Headset is awake on 2.4 GHz wireless, and Bluetooth on the headset is turned off. |
+| ![Headset Off, Receiver Plugged In](images/icons/dongle-only-headset-off.png) | **Headset Off, Receiver Plugged In** | Hollow amber | *(Hidden)* | Your USB-C receiver is plugged into the PC, **but the headset is powered off or asleep**. |
 | ![Disconnected](images/icons/disconnected.png) | **Disconnected** | Slate gray + red slash | *(Hidden)* | The USB-C receiver is unplugged and the headset is not connected to this PC over Bluetooth. |
 
 ---
 
 ## Reading the Popup Status Card
 
-Left-click the tray icon at any time (or run `ArctisNovaTray.exe` / `Start-ArctisNovaTray.ps1` again) to open the Status Card right above your system clock. Pressing `Esc` or clicking anywhere outside dismisses it.
+Left-click the tray icon at any time (or run `ArctisNovaTray.exe` / `Start-ArctisNovaTray.ps1` again) to open the Status Card right above your system clock. You can navigate with `Tab` / `Shift+Tab`, refresh with `F5`, and close with `Esc`, the `×` button, or a click outside the card.
 
 ![Status Card Tour and Taskbar Pinning](images/status-card-annotated.png)
 
-1. **Live Headset Icon & Status Pill**: Mirrors your current taskbar icon alongside an instant status pill (`PC CONNECTED`, `PC BLUETOOTH`, `HEADSET OFF`, or `DISCONNECTED`), plus the detected USB device ID (`1038:22A1` on 2026 refresh hardware, `1038:2202` on original Nova 7, and 13 other family variants).
-2. **PC 2.4GHz / Link**: Shows whether the wireless audio link to your headset is actually live (`Connected (2.4GHz)` or `Connected (PC BT)`) versus sitting idle while the headset is powered down (`Headset Off / Sleeping`).
-3. **USB Dongle**: Confirms whether the SteelSeries USB-C transmitter is physically plugged in (`Plugged In · Paired`, `Plugged In · Standby`, or `Unplugged`).
-4. **Bluetooth**: Reports the headset's own Bluetooth state (`ON · Connected`, `ON · Connected (PC)`, `ON · Standby`, or `OFF`). On Gen 2 / 2026 refresh firmware, the USB-C dongle reports this directly from the headset, so you can see when your headset is paired to your phone!
-5. **Battery Gauge & Refresh**: Shows the real battery percentage (green at 35%+, amber at 15-34%, red below 15%, and blue while charging), the last poll timestamp, and a manual **Refresh** button (`F5` works too). When the headset is turned off, stale battery numbers cached by the USB receiver are hidden so you never get a fake `100%` reading.
+1. **Live Headset Icon, Status Pill & Close (`×`)**: Mirrors your current taskbar icon alongside an instant status pill (`PC CONNECTED`, `PC BLUETOOTH`, `HEADSET OFF`, or `DISCONNECTED`), a plain-English connection subtitle (`2.4 GHz Wireless · USB-C Receiver`, `Bluetooth Audio · PC Direct`, or `Wireless Gaming Headset`, with raw `USB Receiver ID` available on hover), and a keyboard-accessible `×` close button.
+2. **Headset**: Shows whether the wireless audio link to your headset is actually live (`Connected (2.4 GHz)` or `Connected (Bluetooth)`) versus powered down (`Off or Asleep` or `Disconnected`). When your boom mic is muted on the headset, an inline **`MIC MUTED`** badge appears right next to `Headset`.
+3. **USB-C Receiver**: Confirms whether the SteelSeries USB-C transmitter is physically plugged in (`Plugged In · Active`, `Plugged In · Waiting`, or `Unplugged`).
+4. **Bluetooth**: Reports the headset's own Bluetooth state (`Connected`, `Connected (This PC)`, `On · Waiting`, `Off`, or `Unavailable while off`). On Gen 2 / 2026 refresh firmware, the USB-C receiver reads this directly from the headset, so you can see when your headset is paired to your phone.
+5. **Battery Gauge, Live Timestamp & Refresh**: Shows the real battery percentage (`86%`, or `42% · Charging`) with a high-contrast progress bar (green at 35%+, amber at 15-34%, red below 15%, and blue while charging). When the headset is turned off, cached receiver numbers are hidden and replaced with `"Turn headset on to read"` and a 4-segment standby track so you never get a fake `100%` reading. Beneath the rows, a live-ticking 12-hour timestamp (`Updated just now · 2:15:08 PM`) sits beside a tactile **Refresh** button (`F5`, confirming `Checking...` and `✓ Updated`).
 
 ---
 

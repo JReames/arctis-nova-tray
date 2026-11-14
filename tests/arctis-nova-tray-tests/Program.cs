@@ -28,6 +28,17 @@ internal static partial class Program
             return 0;
         }
 
+        if (args.Length >= 2 && string.Equals(args[0], "--generate-ux-previews", StringComparison.OrdinalIgnoreCase))
+        {
+            string outDir = Path.GetFullPath(args[1]);
+            IReadOnlyList<string> generated = DocAssetGenerator.GenerateUxPreviews(outDir);
+            foreach (string path in generated)
+            {
+                Console.WriteLine($"Generated UX preview: {path}");
+            }
+            return 0;
+        }
+
         Console.WriteLine("=== ArctisNovaTray Deterministic Test Suite ===");
 
         Run("Supported Dongle PID Catalog (15 Nova 7 models, excludes 0x22A0 wired cable)", TestPidCatalog);
@@ -37,6 +48,7 @@ internal static partial class Program
         Run("State Machine: All PC & Bluetooth Combinations Map to Exact Visual Keys", TestStateCombinationMatrix);
         Run("Tooltip Formatter: Strict <63 Char Bound Across All States & Inputs", TestTooltipBounds);
         Run("Icon Renderer: Distinctness at 16/32/64px + PNG Export", TestIconRenderingAndExport);
+        Run("Icon & Card UX: Genuine Transparent Hollow Centers & Tactile States", TestHollowIconTransparencyAndCardStates);
         Run("Icon Cache: Zero GDI / USER Handle Growth Across 300 Poll Cycles", TestZeroGdiHandleLeaks);
         Run("Tray Startup Flags & Headless Taskbar Guard / ShowCard Lifecycle", TestTrayFlagsAndLifecycle);
         Run("Live Hardware Probe: Fast Non-Blocking Execution & Valid JSON", TestLiveHardwareProbe);
@@ -279,6 +291,74 @@ internal static partial class Program
             {
                 Directory.Delete(tempExportDir, recursive: true);
             }
+        }
+    }
+
+    private static void TestHollowIconTransparencyAndCardStates()
+    {
+        // 1. DongleOnlyHeadsetOff earcup centers must be genuinely transparent (A == 0) at BOTH 32x32 AND 16x16!
+        using (Bitmap off32 = TrayIconRenderer.RenderBitmap(
+            new TrayVisualKey(HeadsetBaseVisual.DongleOnlyHeadsetOff, BluetoothBadgeVisual.Off), 32))
+        {
+            AssertEqual((byte)0, off32.GetPixel(6, 19).A, "32x32 left hollow earcup center alpha at (6,19)");
+            AssertEqual((byte)0, off32.GetPixel(26, 19).A, "32x32 right hollow earcup center alpha at (26,19)");
+        }
+
+        using (Bitmap off16 = TrayIconRenderer.RenderBitmap(
+            new TrayVisualKey(HeadsetBaseVisual.DongleOnlyHeadsetOff, BluetoothBadgeVisual.Off), 16))
+        {
+            AssertEqual((byte)0, off16.GetPixel(2, 9).A, "16x16 left hollow earcup alpha at (2,9)");
+            AssertEqual((byte)0, off16.GetPixel(3, 9).A, "16x16 left hollow earcup alpha at (3,9)");
+            AssertEqual((byte)0, off16.GetPixel(12, 9).A, "16x16 right hollow earcup alpha at (12,9)");
+            AssertEqual((byte)0, off16.GetPixel(13, 9).A, "16x16 right hollow earcup alpha at (13,9)");
+        }
+
+        // 2. Standby Bluetooth ring center must be genuinely transparent (A == 0) at BOTH 32x32 AND 16x16!
+        using (Bitmap standby32 = TrayIconRenderer.RenderBitmap(
+            new TrayVisualKey(HeadsetBaseVisual.PcConnected, BluetoothBadgeVisual.Standby), 32))
+        {
+            AssertEqual((byte)0, standby32.GetPixel(23, 23).A, "32x32 Standby Bluetooth ring center alpha at (23,23)");
+        }
+
+        using (Bitmap standby16 = TrayIconRenderer.RenderBitmap(
+            new TrayVisualKey(HeadsetBaseVisual.PcConnected, BluetoothBadgeVisual.Standby), 16))
+        {
+            AssertEqual((byte)0, standby16.GetPixel(11, 11).A, "16x16 Standby Bluetooth ring center alpha at (11,11)");
+        }
+
+        // 3. Menu summary uses plain-English "(Charging)" while compact tooltip stays < 63 chars
+        var chargingSnap = new HeadsetSnapshot
+        {
+            Timestamp = DateTimeOffset.Now,
+            PcConnection = PcConnectionState.Connected24Ghz,
+            Bluetooth = BluetoothState.Standby,
+            BatteryPercent = 42,
+            Charging = BatteryChargingState.Charging
+        };
+        string menuSummary = TooltipFormatter.FormatMenuSummary(chargingSnap);
+        AssertTrue(menuSummary.Contains("42% (Charging)", StringComparison.Ordinal), $"Expected '42% (Charging)' in menu summary, got '{menuSummary}'");
+
+        // 4. All 5 RefreshVisualState renders at 1x must produce distinct visual frames
+        var snap = new HeadsetSnapshot
+        {
+            Timestamp = DateTimeOffset.Now,
+            PcConnection = PcConnectionState.Connected24Ghz,
+            Bluetooth = BluetoothState.Connected,
+            DonglePresent = true,
+            DongleVidPid = "1038:22A1",
+            HeadsetOnline24Ghz = true,
+            BatteryPercent = 86,
+            Charging = BatteryChargingState.Discharging
+        };
+
+        var cardHashes = new HashSet<string>(StringComparer.Ordinal);
+        foreach (RefreshVisualState state in Enum.GetValues<RefreshVisualState>())
+        {
+            using Bitmap card = StatusFlyoutForm.RenderCardBitmap(snap, scale: 1.0f, refreshState: state, referenceNow: snap.Timestamp);
+            AssertEqual(StatusFlyoutForm.LogicalWidth, card.Width, $"Card width ({state})");
+            AssertEqual(StatusFlyoutForm.LogicalHeight, card.Height, $"Card height ({state})");
+            string hash = ComputePixelHash(card, out _);
+            AssertTrue(cardHashes.Add(hash), $"RefreshVisualState.{state} should render distinctly");
         }
     }
 
