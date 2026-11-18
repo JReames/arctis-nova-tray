@@ -59,12 +59,58 @@ internal static class DocAssetGenerator
             Charging = BatteryChargingState.Disconnected
         };
 
+        var nova3PSnap = new HeadsetSnapshot
+        {
+            Timestamp = connectedSnap.Timestamp,
+            PcConnection = PcConnectionState.Connected24Ghz,
+            Bluetooth = BluetoothState.Off,
+            DonglePresent = true,
+            DongleProductName = "Arctis Nova 3P Wireless",
+            DongleVidPid = "1038:2269",
+            VerificationTier = "Community-Spec",
+            HeadsetOnline24Ghz = true,
+            BatteryPercent = 63,
+            Charging = BatteryChargingState.Discharging
+        };
+
+        var novaProOmniSnap = new HeadsetSnapshot
+        {
+            Timestamp = connectedSnap.Timestamp,
+            PcConnection = PcConnectionState.Connected24Ghz,
+            Bluetooth = BluetoothState.Off,
+            DonglePresent = true,
+            DongleProductName = "Arctis Nova Pro Omni",
+            DongleVidPid = "1038:2290",
+            VerificationTier = "Community-Spec",
+            HeadsetOnline24Ghz = true,
+            BatteryPercent = 100,
+            Charging = BatteryChargingState.Charging,
+            MicMuted = true
+        };
+
+        var gameBudsSnap = new HeadsetSnapshot
+        {
+            Timestamp = connectedSnap.Timestamp,
+            PcConnection = PcConnectionState.Connected24Ghz,
+            Bluetooth = BluetoothState.Off,
+            DonglePresent = true,
+            DongleProductName = "Arctis GameBuds",
+            DongleVidPid = "1038:230A",
+            VerificationTier = "Community-Spec",
+            HeadsetOnline24Ghz = true,
+            BatteryPercent = 64,
+            Charging = BatteryChargingState.Discharging
+        };
+
         (string Slug, HeadsetSnapshot Snap, RefreshVisualState Refresh, bool CloseHover, CardFocusTarget Focus, DateTimeOffset RefNow, bool StartupEnabled, bool StartupHover)[] cardCases =
         [
             ("card-connected", connectedSnap, RefreshVisualState.Normal, false, CardFocusTarget.None, refNowImmediate, true, false),
             ("card-headset-off", headsetOffSnap, RefreshVisualState.Normal, false, CardFocusTarget.None, refNow14Sec, false, false),
             ("card-mic-muted-charging", micMutedChargingSnap, RefreshVisualState.Normal, false, CardFocusTarget.None, refNowImmediate, true, true),
             ("card-disconnected-close-focus", disconnectedSnap, RefreshVisualState.Normal, true, CardFocusTarget.CloseButton, refNow14Sec, false, false),
+            ("card-nova3p-wireless", nova3PSnap, RefreshVisualState.Normal, false, CardFocusTarget.None, refNowImmediate, true, false),
+            ("card-nova-pro-omni", novaProOmniSnap, RefreshVisualState.Normal, false, CardFocusTarget.None, refNowImmediate, true, false),
+            ("card-gamebuds", gameBudsSnap, RefreshVisualState.Normal, false, CardFocusTarget.None, refNowImmediate, false, false),
             ("card-startup-focus", connectedSnap, RefreshVisualState.Normal, false, CardFocusTarget.StartupToggle, refNowImmediate, true, true),
             ("card-refresh-hover", connectedSnap, RefreshVisualState.Hover, false, CardFocusTarget.RefreshButton, refNowImmediate, false, false),
             ("card-refresh-pressed", connectedSnap, RefreshVisualState.Pressed, false, CardFocusTarget.None, refNowImmediate, true, false),

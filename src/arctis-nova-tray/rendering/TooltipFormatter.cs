@@ -1,4 +1,5 @@
 using ArctisNovaTray.Models;
+using ArctisNovaTray.Protocol;
 
 namespace ArctisNovaTray.Rendering;
 
@@ -9,9 +10,70 @@ public static class TooltipFormatter
     /// </summary>
     public const int MaxTooltipLength = 62;
 
+    public static string ResolveModelPrefix(HeadsetSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+
+        if (Nova7HidProtocol.TryGetProfileByVidPid(snapshot.DongleVidPid, out HeadsetProtocolProfile? profile))
+        {
+            return profile.ShortLabel;
+        }
+
+        string? candidateName = !string.IsNullOrWhiteSpace(snapshot.DongleProductName)
+            ? snapshot.DongleProductName
+            : snapshot.WindowsBluetoothDeviceName;
+
+        if (!string.IsNullOrWhiteSpace(candidateName))
+        {
+            if (candidateName.Contains("Nova 7", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Nova 7";
+            }
+
+            if (candidateName.Contains("Nova 5X", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Nova 5X";
+            }
+
+            if (candidateName.Contains("Nova 5", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Nova 5";
+            }
+
+            if (candidateName.Contains("Nova 3X", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Nova 3X";
+            }
+
+            if (candidateName.Contains("Nova 3P", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Nova 3P";
+            }
+
+            if (candidateName.Contains("Nova 3", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Nova 3";
+            }
+
+            if (candidateName.Contains("Nova Pro", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Nova Pro";
+            }
+
+            if (candidateName.Contains("GameBuds", StringComparison.OrdinalIgnoreCase))
+            {
+                return "GameBuds";
+            }
+        }
+
+        return "Arctis Nova";
+    }
+
     public static string Format(HeadsetSnapshot snapshot)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
+
+        string prefix = ResolveModelPrefix(snapshot);
 
         string pcPart = snapshot.PcConnection switch
         {
@@ -31,12 +93,12 @@ public static class TooltipFormatter
         string? batteryPart = FormatBatteryCompact(snapshot);
 
         string raw = snapshot.PcConnection == PcConnectionState.Disconnected && snapshot.Bluetooth == BluetoothState.Off
-            ? "Nova 7: Disconnected (No Receiver / BT)"
+            ? $"{prefix}: Disconnected (No Receiver / BT)"
             : snapshot.PcConnection == PcConnectionState.DongleOnlyHeadsetOff && snapshot.Bluetooth == BluetoothState.Off
-                ? "Nova 7: Off or Asleep (Receiver In)"
+                ? $"{prefix}: Off or Asleep (Receiver In)"
                 : batteryPart is not null
-                    ? $"Nova 7: {pcPart} | {btPart} | {batteryPart}"
-                    : $"Nova 7: {pcPart} | {btPart}";
+                    ? $"{prefix}: {pcPart} | {btPart} | {batteryPart}"
+                    : $"{prefix}: {pcPart} | {btPart}";
 
         return TruncateSafe(raw);
     }
@@ -80,7 +142,7 @@ public static class TooltipFormatter
     {
         if (string.IsNullOrEmpty(text))
         {
-            return "Arctis Nova 7";
+            return "Arctis Nova";
         }
 
         if (text.Length <= MaxTooltipLength)

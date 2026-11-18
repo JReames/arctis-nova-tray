@@ -67,6 +67,7 @@ public sealed record HeadsetSnapshot
     public bool DonglePresent { get; init; }
     public string? DongleProductName { get; init; }
     public string? DongleVidPid { get; init; }
+    public string? VerificationTier { get; init; }
     public bool HeadsetOnline24Ghz { get; init; }
 
     public bool WindowsBluetoothPaired { get; init; }
@@ -100,7 +101,7 @@ public sealed record HeadsetSnapshot
             ? DongleProductName
             : !string.IsNullOrWhiteSpace(WindowsBluetoothDeviceName)
                 ? WindowsBluetoothDeviceName
-                : "Arctis Nova 7";
+                : "Arctis Nova";
 
     public static HeadsetSnapshot CreateInitial() => new()
     {

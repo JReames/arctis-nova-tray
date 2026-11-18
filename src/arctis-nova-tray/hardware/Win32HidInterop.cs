@@ -168,7 +168,8 @@ public static partial class Win32HidInterop
         byte expectedOpcode,
         int timeoutMs,
         out byte[]? responseBytes,
-        out string? error)
+        out string? error,
+        byte expectedReportId = 0x00)
     {
         responseBytes = null;
         error = null;
@@ -197,7 +198,7 @@ public static partial class Win32HidInterop
 
         int outLength = device.OutputReportByteLength > 0
             ? device.OutputReportByteLength
-            : Math.Max(65, requestPayload.Length);
+            : Math.Max(64, requestPayload.Length);
 
         byte[] outBuffer = new byte[outLength];
         int copyLen = Math.Min(requestPayload.Length, outBuffer.Length);
@@ -209,7 +210,9 @@ public static partial class Win32HidInterop
             return false;
         }
 
-        int inLength = device.InputReportByteLength > 0 ? device.InputReportByteLength : 65;
+        int inLength = device.InputReportByteLength > 0
+            ? device.InputReportByteLength
+            : Math.Max(64, requestPayload.Length);
 
         // Read up to 4 input reports within the 250ms budget in case SteelSeries GG
         // simultaneously requested another opcode (e.g. 0x20 or 0xA0) on UP=0xFFC0.
@@ -230,14 +233,14 @@ public static partial class Win32HidInterop
             }
 
             byte[] frame = bytesRead == inBuffer.Length ? inBuffer : inBuffer[..bytesRead];
-            if (frame.Length >= 2 && frame[1] == expectedOpcode)
+            if (frame.Length >= 2 && frame[0] == expectedReportId && frame[1] == expectedOpcode)
             {
                 responseBytes = frame;
                 return true;
             }
         }
 
-        error = $"Did not observe 0x{expectedOpcode:X2} response within 4 HID frames.";
+        error = $"Did not observe 0x{expectedReportId:X2}:0x{expectedOpcode:X2} response within 4 HID frames.";
         return false;
     }
 
@@ -275,6 +278,15 @@ public static partial class Win32HidInterop
                 int err = Marshal.GetLastPInvokeError();
                 if (err != ERROR_IO_PENDING)
                 {
+                    // Fallback strictly to HidD_SetOutputReport (never HidD_SetFeature) for non-zero Report ID
+                    // devices such as Nova Pro Omni GameHub (0x2290) when Output transfers run over EP0.
+                    if (buffer.Length > 0 &&
+                        buffer[0] != 0x00 &&
+                        HidD_SetOutputReport(handle, pinned.AddrOfPinnedObject(), (uint)buffer.Length))
+                    {
+                        return true;
+                    }
+
                     error = $"WriteFile failed ({err}).";
                     return false;
                 }
@@ -511,6 +523,13 @@ public static partial class Win32HidInterop
     [LibraryImport("hid.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static partial bool HidD_FlushQueue(SafeFileHandle hidDeviceObject);
+
+    [LibraryImport("hid.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool HidD_SetOutputReport(
+        SafeFileHandle hidDeviceObject,
+        IntPtr reportBuffer,
+        uint reportBufferLength);
 
     [LibraryImport("setupapi.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
     private static partial IntPtr SetupDiGetClassDevsW(

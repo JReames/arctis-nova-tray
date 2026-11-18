@@ -101,9 +101,11 @@ public static partial class Win32BluetoothProbe
     }
 
     public static bool IsMatchingHeadsetName(string name) =>
-        name.Contains("Nova 7", StringComparison.OrdinalIgnoreCase) ||
-        name.Contains("Arctis", StringComparison.OrdinalIgnoreCase) ||
-        name.Contains("SteelSeries", StringComparison.OrdinalIgnoreCase);
+        !string.IsNullOrWhiteSpace(name) &&
+        (name.Contains("Nova", StringComparison.OrdinalIgnoreCase) ||
+         name.Contains("Arctis", StringComparison.OrdinalIgnoreCase) ||
+         name.Contains("GameBuds", StringComparison.OrdinalIgnoreCase) ||
+         name.Contains("SteelSeries", StringComparison.OrdinalIgnoreCase));
 
     private static string? TryGetStringProperty(uint devInst, DevPropKey key)
     {
