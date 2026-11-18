@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -6,7 +7,9 @@ using ArctisNovaTray.Hardware;
 using ArctisNovaTray.Models;
 using ArctisNovaTray.Protocol;
 using ArctisNovaTray.Rendering;
+using ArctisNovaTray.Services;
 using ArctisNovaTray.Ui;
+using Microsoft.Win32;
 
 namespace ArctisNovaTray.Tests;
 
@@ -48,7 +51,9 @@ internal static partial class Program
         Run("State Machine: All PC & Bluetooth Combinations Map to Exact Visual Keys", TestStateCombinationMatrix);
         Run("Tooltip Formatter: Strict <63 Char Bound Across All States & Inputs", TestTooltipBounds);
         Run("Icon Renderer: Distinctness at 16/32/64px + PNG Export", TestIconRenderingAndExport);
+        Run("Application Icon: Multi-Res Win32 .ico & Embedded PE Resource", TestApplicationIconEmbeddedResource);
         Run("Icon & Card UX: Genuine Transparent Hollow Centers & Tactile States", TestHollowIconTransparencyAndCardStates);
+        Run("Startup Service & Status Card Toggle: HKCU Run Lifecycle & Pixel States", TestStartupRegistrationServiceAndCardToggle);
         Run("Icon Cache: Zero GDI / USER Handle Growth Across 300 Poll Cycles", TestZeroGdiHandleLeaks);
         Run("Tray Startup Flags & Headless Taskbar Guard / ShowCard Lifecycle", TestTrayFlagsAndLifecycle);
         Run("Live Hardware Probe: Fast Non-Blocking Execution & Valid JSON", TestLiveHardwareProbe);
@@ -404,6 +409,9 @@ internal static partial class Program
         AssertTrue(silent1 && headless1, "Both tray flags true");
 
         AssertTrue(!ArctisNovaTray.Program.TryParseTrayStartupFlags(["--status-json"], out _, out _), "CLI status-json is not tray mode");
+        AssertTrue(!ArctisNovaTray.Program.TryParseTrayStartupFlags(["--enable-startup"], out _, out _), "CLI enable-startup is not tray mode");
+        AssertTrue(!ArctisNovaTray.Program.TryParseTrayStartupFlags(["--disable-startup"], out _, out _), "CLI disable-startup is not tray mode");
+        AssertTrue(!ArctisNovaTray.Program.TryParseTrayStartupFlags(["--startup-status"], out _, out _), "CLI startup-status is not tray mode");
         AssertTrue(!ArctisNovaTray.Program.TryParseTrayStartupFlags(["--export-icons", "out"], out _, out _), "CLI export-icons is not tray mode");
 
         // Only run live child-process mutex/event test when no interactive user instance is already active.
@@ -483,6 +491,89 @@ internal static partial class Program
                 daemon.WaitForExit(1000);
             }
         }
+    }
+
+    private static void TestApplicationIconEmbeddedResource()
+    {
+        string tempIco = Path.Combine(AppContext.BaseDirectory, $"test-app-{Guid.NewGuid():N}.ico");
+        try
+        {
+            TrayIconRenderer.WriteApplicationIco(tempIco);
+            byte[] icoBytes = File.ReadAllBytes(tempIco);
+            AssertTrue(icoBytes.Length > 4096, $"Expected multi-resolution .ico > 4KB, got {icoBytes.Length}");
+            AssertEqual((ushort)0, BitConverter.ToUInt16(icoBytes, 0), "ICO reserved header");
+            AssertEqual((ushort)1, BitConverter.ToUInt16(icoBytes, 2), "ICO type = 1");
+            AssertEqual((ushort)7, BitConverter.ToUInt16(icoBytes, 4), "ICO frame count = 7 (16..256)");
+
+            using var loaded16 = new Icon(tempIco, new Size(16, 16));
+            using var loaded32 = new Icon(tempIco, new Size(32, 32));
+            using var loaded48 = new Icon(tempIco, new Size(48, 48));
+            using var loaded256 = new Icon(tempIco, new Size(256, 256));
+            AssertTrue(loaded16.Handle != IntPtr.Zero && loaded32.Handle != IntPtr.Zero && loaded48.Handle != IntPtr.Zero && loaded256.Handle != IntPtr.Zero, "Multi-res ICO handles valid");
+        }
+        finally
+        {
+            if (File.Exists(tempIco))
+            {
+                File.Delete(tempIco);
+            }
+        }
+
+        string exePath = Path.Combine(AppContext.BaseDirectory, "ArctisNovaTray.exe");
+        AssertTrue(File.Exists(exePath), $"Expected ArctisNovaTray.exe beside test binary at {exePath}");
+        using Icon? embedded = Icon.ExtractAssociatedIcon(exePath);
+        AssertTrue(embedded is not null && embedded.Handle != IntPtr.Zero, "ArctisNovaTray.exe must contain an embedded Win32 PE application icon");
+
+        string repoIco = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "arctis-nova-tray", "assets", "arctis-nova-tray.ico"));
+        if (File.Exists(repoIco))
+        {
+            using var repoIcon = new Icon(repoIco);
+            AssertTrue(repoIcon.Handle != IntPtr.Zero, "Committed assets/arctis-nova-tray.ico should load cleanly");
+        }
+    }
+
+    private static void TestStartupRegistrationServiceAndCardToggle()
+    {
+        string testSubKey = @"Software\ArctisNovaTray_UnitTest_" + Guid.NewGuid().ToString("N");
+        string fakeExe = Path.Combine(AppContext.BaseDirectory, "ArctisNovaTray.exe");
+        var service = new RegistryStartupRegistrationService(testSubKey, "ArctisNovaTray", fakeExe);
+
+        try
+        {
+            AssertTrue(!service.IsStartupEnabled, "Initial isolated startup state must be false");
+
+            service.SetStartupEnabled(true);
+            AssertTrue(service.IsStartupEnabled, "Startup state should be true after enabling");
+
+            string expectedCmd = $"\"{Path.GetFullPath(fakeExe)}\" --silent";
+            AssertEqual(expectedCmd, service.BuildCommand(), "Startup command string");
+
+            using RegistryKey? key = Registry.CurrentUser.OpenSubKey(testSubKey, writable: false);
+            AssertEqual(expectedCmd, key?.GetValue("ArctisNovaTray") as string, "Registry value written");
+
+            service.SetStartupEnabled(false);
+            AssertTrue(!service.IsStartupEnabled, "Startup state should be false after disabling");
+        }
+        finally
+        {
+            Registry.CurrentUser.DeleteSubKeyTree(testSubKey, throwOnMissingSubKey: false);
+        }
+
+        var snap = new HeadsetSnapshot
+        {
+            Timestamp = DateTimeOffset.Now,
+            PcConnection = PcConnectionState.Connected24Ghz,
+            Bluetooth = BluetoothState.Connected,
+            DonglePresent = true,
+            HeadsetOnline24Ghz = true,
+            BatteryPercent = 86
+        };
+
+        using Bitmap cardOff = StatusFlyoutForm.RenderCardBitmap(snap, scale: 1.0f, startupEnabled: false, referenceNow: snap.Timestamp);
+        using Bitmap cardOn = StatusFlyoutForm.RenderCardBitmap(snap, scale: 1.0f, startupEnabled: true, referenceNow: snap.Timestamp);
+        AssertEqual(StatusFlyoutForm.LogicalWidth, cardOff.Width, "Card width");
+        AssertEqual(StatusFlyoutForm.LogicalHeight, cardOff.Height, "Card height");
+        AssertTrue(!string.Equals(ComputePixelHash(cardOff, out _), ComputePixelHash(cardOn, out _), StringComparison.Ordinal), "Startup toggle Off vs On must render distinct pixels");
     }
 
     private static void TestLiveHardwareProbe()

@@ -4,6 +4,7 @@ using System.Text.Json;
 using ArctisNovaTray.Hardware;
 using ArctisNovaTray.Models;
 using ArctisNovaTray.Rendering;
+using ArctisNovaTray.Services;
 using ArctisNovaTray.Ui;
 
 namespace ArctisNovaTray;
@@ -67,7 +68,8 @@ public static partial class Program
             ApplicationConfiguration.Initialize();
             using var context = new TrayApplicationContext(
                 new Nova7HardwareProbe(),
-                showCardOnStartup: !silentStartup);
+                showCardOnStartup: !silentStartup,
+                startupService: new RegistryStartupRegistrationService());
             Application.Run(context);
             return 0;
         }
@@ -166,6 +168,39 @@ public static partial class Program
                 return 0;
             }
 
+            if (string.Equals(arg, "--enable-startup", StringComparison.OrdinalIgnoreCase))
+            {
+                var startupService = new RegistryStartupRegistrationService();
+                startupService.SetStartupEnabled(true);
+                string json = JsonSerializer.Serialize(
+                    new { startupEnabled = true, command = startupService.BuildCommand() },
+                    JsonOptions);
+                stdout.WriteLine(json);
+                return 0;
+            }
+
+            if (string.Equals(arg, "--disable-startup", StringComparison.OrdinalIgnoreCase))
+            {
+                var startupService = new RegistryStartupRegistrationService();
+                startupService.SetStartupEnabled(false);
+                string json = JsonSerializer.Serialize(
+                    new { startupEnabled = false },
+                    JsonOptions);
+                stdout.WriteLine(json);
+                return 0;
+            }
+
+            if (string.Equals(arg, "--startup-status", StringComparison.OrdinalIgnoreCase))
+            {
+                var startupService = new RegistryStartupRegistrationService();
+                bool enabled = startupService.IsStartupEnabled;
+                string json = JsonSerializer.Serialize(
+                    new { startupEnabled = enabled, command = enabled ? startupService.BuildCommand() : null },
+                    JsonOptions);
+                stdout.WriteLine(json);
+                return 0;
+            }
+
             if (arg is "--help" or "-h" or "/?")
             {
                 stdout.WriteLine("ArctisNovaTray - SteelSeries Arctis Nova 7 System Tray Indicator");
@@ -174,6 +209,9 @@ public static partial class Program
                 stdout.WriteLine("  ArctisNovaTray.exe --silent               Start tray indicator without opening Status Card");
                 stdout.WriteLine("  ArctisNovaTray.exe --allow-headless       Bypass interactive taskbar guard (automated tests)");
                 stdout.WriteLine("  ArctisNovaTray.exe --status-json          Probe hardware once and print JSON");
+                stdout.WriteLine("  ArctisNovaTray.exe --enable-startup       Register Windows login startup (--silent)");
+                stdout.WriteLine("  ArctisNovaTray.exe --disable-startup      Remove Windows login startup registration");
+                stdout.WriteLine("  ArctisNovaTray.exe --startup-status       Print Windows startup registration status JSON");
                 stdout.WriteLine("  ArctisNovaTray.exe --export-icons <dir>   Export 16x16, 32x32, 64x64 PNG icons");
                 return 0;
             }

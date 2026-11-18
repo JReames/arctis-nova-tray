@@ -1,8 +1,46 @@
 [CmdletBinding()]
-param()
+param(
+    [switch]$DisableStartup
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+if ($DisableStartup) {
+    $projectRoot = if (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'ArctisNovaTray.exe')) {
+        $PSScriptRoot
+    }
+    else {
+        Split-Path -Parent $PSScriptRoot
+    }
+
+    $candidates = @(
+        (Join-Path $PSScriptRoot 'ArctisNovaTray.exe'),
+        (Join-Path $projectRoot 'ArctisNovaTray.exe'),
+        (Join-Path $projectRoot 'src\arctis-nova-tray\bin\Release\net9.0-windows\ArctisNovaTray.exe'),
+        (Join-Path $projectRoot 'src\arctis-nova-tray\bin\Debug\net9.0-windows\ArctisNovaTray.exe')
+    )
+
+    $targetExe = $null
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath $candidate) {
+            $targetExe = $candidate
+            break
+        }
+    }
+
+    if ($targetExe) {
+        $null = (& $targetExe --disable-startup | Out-String)
+        if ($LASTEXITCODE -ne 0) {
+            throw "ArctisNovaTray --disable-startup failed with exit code $LASTEXITCODE."
+        }
+        Write-Host 'Disabled Windows startup registration.'
+    }
+    else {
+        Remove-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'ArctisNovaTray' -ErrorAction SilentlyContinue
+        Write-Host 'Disabled Windows startup registration.'
+    }
+}
 
 $existing = @(Get-Process -Name 'ArctisNovaTray' -ErrorAction SilentlyContinue)
 if ($existing.Count -eq 0) {

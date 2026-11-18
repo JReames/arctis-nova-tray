@@ -8,13 +8,14 @@
 - **Sources of Truth**:
   - HID vendor protocol constants and byte decoding: `src/arctis-nova-tray/protocol/Nova7HidProtocol.cs`
   - Win32 HID and Windows Bluetooth PnP probing: `src/arctis-nova-tray/hardware/`
-  - Dark- and light-taskbar adaptive DPI-aware GDI+ icon rendering and `HICON` lifecycle: `src/arctis-nova-tray/rendering/`
-  - WCAG AA/AAA light-mode status flyout card (`436x392` logical) and tray context menu: `src/arctis-nova-tray/ui/`
+  - Dark- and light-taskbar adaptive DPI-aware GDI+ icon rendering, multi-resolution `.ico` generation, and `HICON` lifecycle: `src/arctis-nova-tray/rendering/`
+  - Opt-in Windows login startup registration (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`): `src/arctis-nova-tray/services/StartupRegistrationService.cs`
+  - WCAG AA/AAA light-mode status flyout card (`436x444` logical) and tray context menu: `src/arctis-nova-tray/ui/`
   - Human-facing usage, visual cheat sheet, and CLI documentation: `README.md` and `docs/VISUAL-GUIDE.md`
 
 ## 3. Behavior-Changing Local Rules
 1. **Zero External Package Downloads**: Both `.csproj` files must contain zero `<PackageReference>` entries and build completely offline against standard `.NET 9` Windows Desktop SDK targeting packs (`net9.0-windows`). Never add third-party NuGet package dependencies without explicit approval.
-2. **System Hygiene**: Never write files, shortcuts, or registry keys to system directories, `%APPDATA%`, `%LOCALAPPDATA%`, or Windows Startup folders. Keep any optional local runtime diagnostics inside `./logs/` (gitignored).
+2. **System Hygiene**: Never write files or shortcuts to system directories, `%APPDATA%`, `%LOCALAPPDATA%`, or Windows Startup folders. Registry writes are strictly limited to the user-invoked opt-in `Start with Windows` toggle under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\ArctisNovaTray` (using `--silent`), and tests must isolate registry writes to disposable subkeys deleted in `finally`. Keep any optional local runtime diagnostics inside `./logs/` (gitignored).
 3. **Peaceful Hardware Coexistence**: Always open vendor HID interfaces with `FILE_SHARE_READ | FILE_SHARE_WRITE` and overlapped I/O read timeouts `<= 250ms` (`CancelIoEx` on timeout) so SteelSeries GG and audio endpoints are never blocked, locked out, or stalled on the UI thread.
 4. **Zero GDI Leaks and Tooltip Guardrails**:
    - Always destroy raw `Bitmap.GetHicon()` handles immediately after cloning into a managed `Icon`, and cache `Icon` instances per `(HeadsetBaseVisual, BluetoothBadgeVisual, SizePx)` in `TrayIconCache`.
@@ -22,7 +23,7 @@
 5. **Interactive Taskbar Guard and Non-Squatting Discipline**:
    - `Program.Main` checks `FindWindowW("Shell_TrayWnd", null)` before acquiring `Local\ArctisNovaTray_SingleInstance_v1` (exiting with code `3` when no interactive taskbar is reachable unless `--allow-headless` is passed).
    - Automated or sandboxed verification sessions that launch `ArctisNovaTray.exe` with `--allow-headless` (`-AllowHeadless`) must run `.\scripts\Stop-ArctisNovaTray.ps1` before finishing so no headless process holds `Local\ArctisNovaTray_SingleInstance_v1`.
-6. **Naming Discipline**: Keep all directory names strictly lowercase kebab-case (`src/arctis-nova-tray/`, `tests/arctis-nova-tray-tests/`, `scripts/`, `docs/images/icons/`) and keep PowerShell scripts in approved `Verb-Noun.ps1` form (`Start-ArctisNovaTray.ps1`, `Stop-ArctisNovaTray.ps1`, `Get-ArctisNovaStatus.ps1`).
+6. **Naming Discipline**: Keep all directory names strictly lowercase kebab-case (`src/arctis-nova-tray/`, `tests/arctis-nova-tray-tests/`, `scripts/`, `docs/images/icons/`, `assets/`, `services/`) and keep PowerShell scripts in approved `Verb-Noun.ps1` form (`Start-ArctisNovaTray.ps1`, `Stop-ArctisNovaTray.ps1`, `Get-ArctisNovaStatus.ps1`).
 
 ## 4. Required Verification
 Run from the repository root:
@@ -63,19 +64,21 @@ Run from the repository root:
 - `README.md`: Overview, quick-start steps, visual cheat sheet, PowerShell helpers, and technical reference.
 - `docs/VISUAL-GUIDE.md` & `docs/images/`: Annotated Status Card tour, taskbar pinning guide, everyday scenarios, and generated high-DPI diagrams/icons.
 - `LICENSE`: MIT license.
-- `scripts/Start-ArctisNovaTray.ps1`: Detached launcher supporting both packaged release layouts and source checkouts (`-Restart`, `-Silent`, `-AllowHeadless`, `-Build`), bringing the light-mode Status Card to the front when already running.
-- `scripts/Stop-ArctisNovaTray.ps1`: Graceful tray shutdown helper (signals `Local\ArctisNovaTray_Shutdown_v1` before process cleanup so no ghost tray icon remains).
+- `scripts/Start-ArctisNovaTray.ps1`: Detached launcher supporting both packaged release layouts and source checkouts (`-Restart`, `-Silent`, `-AllowHeadless`, `-EnableStartup`, `-DisableStartup`, `-Build`), bringing the light-mode Status Card to the front when already running.
+- `scripts/Stop-ArctisNovaTray.ps1`: Graceful tray shutdown helper (signals `Local\ArctisNovaTray_Shutdown_v1` before process cleanup; supports `-DisableStartup`).
 - `scripts/Get-ArctisNovaStatus.ps1`: Synchronous PowerShell status probe wrapper returning a parsed status object by default or raw JSON with `-RawJson`.
 - `src/arctis-nova-tray/`:
-  - `Program.cs`: CLI flag handling (`--status-json`, `--export-icons`, `--help`), taskbar guard, single-instance `Mutex`, and WinForms bootstrap.
+  - `Program.cs`: CLI flag handling (`--status-json`, `--enable-startup`, `--disable-startup`, `--startup-status`, `--export-icons`, `--help`), taskbar guard, single-instance `Mutex`, and WinForms bootstrap.
+  - `assets/arctis-nova-tray.ico`: Multi-resolution Win32 `.ico` embedded in `ArctisNovaTray.exe` via `<ApplicationIcon>`.
   - `models/`: `HeadsetSnapshot`, visual state enums, and `IHeadsetProbe`.
   - `protocol/`: `Nova7HidProtocol` VID/PID table, status request framing, and HID report byte parser.
   - `hardware/`: `Win32HidInterop`, `Win32BluetoothProbe`, and `Nova7HardwareProbe`.
+  - `services/`: `StartupRegistrationService` managing opt-in Windows login registration (`--silent`).
   - `rendering/`: `TrayIconRenderer`, `TrayIconCache`, and `TooltipFormatter`.
   - `ui/`: `TrayApplicationContext`, `StatusFlyoutForm` (Light Mode), and `DeviceChangeMonitor` (`WM_DEVICECHANGE`).
 - `tests/arctis-nova-tray-tests/`:
-  - `Program.cs`: Deterministic test runner covering HID report parsing across all Nova 7 states, tooltip bounds, icon rendering, PNG export, tray lifecycle guards, and live probe execution.
-  - `DocAssetGenerator.cs`: High-DPI documentation diagram and icon exporter (`--generate-docs <repoRoot>`), keeping documentation rendering out of the shipped tray executable.
+  - `Program.cs`: Deterministic 13-case test runner covering HID report parsing across all Nova 7 states, embedded `.ico` validation, startup registration, tooltip bounds, icon rendering, PNG export, tray lifecycle guards, and live probe execution.
+  - `DocAssetGenerator.cs`: High-DPI documentation diagram, `.ico`, and icon exporter (`--generate-docs <repoRoot>`), keeping documentation rendering out of the shipped tray executable.
 
 ## Last Updated
-2026-11-13
+2026-11-18

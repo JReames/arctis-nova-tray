@@ -1,5 +1,7 @@
+using System.Drawing.Drawing2D;
 using ArctisNovaTray.Models;
 using ArctisNovaTray.Rendering;
+using ArctisNovaTray.Services;
 
 namespace ArctisNovaTray.Ui;
 
@@ -20,6 +22,7 @@ public sealed class TrayApplicationContext : ApplicationContext
     private static readonly TimeSpan HotplugDebounce = TimeSpan.FromMilliseconds(350);
 
     private readonly IHeadsetProbe _probe;
+    private readonly IStartupRegistrationService _startupService;
     private readonly SynchronizationContext _uiContext;
     private readonly TrayIconCache _iconCache = new();
     private readonly NotifyIcon _notifyIcon;
@@ -27,6 +30,7 @@ public sealed class TrayApplicationContext : ApplicationContext
     private readonly Font _menuFont;
     private readonly Font _menuPrimaryFont;
     private readonly ToolStripMenuItem _summaryMenuItem;
+    private readonly ToolStripMenuItem _startupMenuItem;
     private readonly StatusFlyoutForm _flyout;
     private readonly DeviceChangeMonitor _deviceMonitor;
     private readonly EventWaitHandle _shutdownEvent;
@@ -43,10 +47,14 @@ public sealed class TrayApplicationContext : ApplicationContext
     private bool _showCardOnFirstProbe;
     private bool _disposed;
 
-    public TrayApplicationContext(IHeadsetProbe probe, bool showCardOnStartup = true)
+    public TrayApplicationContext(
+        IHeadsetProbe probe,
+        bool showCardOnStartup = true,
+        IStartupRegistrationService? startupService = null)
     {
         _probe = probe ?? throw new ArgumentNullException(nameof(probe));
         _showCardOnFirstProbe = showCardOnStartup;
+        _startupService = startupService ?? new RegistryStartupRegistrationService();
         _uiContext = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
 
         _menuFont = new Font("Segoe UI", 10f, FontStyle.Regular, GraphicsUnit.Point);
@@ -74,6 +82,14 @@ public sealed class TrayApplicationContext : ApplicationContext
         };
         refreshItem.Click += (_, _) => _ = RefreshNowAsync(isManual: true);
 
+        _startupMenuItem = new ToolStripMenuItem("Start with Windows")
+        {
+            Font = _menuFont,
+            Padding = itemPadding,
+            CheckOnClick = false
+        };
+        _startupMenuItem.Click += (_, _) => ToggleStartupRegistration();
+
         var exitItem = new ToolStripMenuItem("Exit")
         {
             Font = _menuFont,
@@ -85,6 +101,7 @@ public sealed class TrayApplicationContext : ApplicationContext
         {
             Renderer = new LightMenuRenderer(),
             ShowImageMargin = false,
+            ShowCheckMargin = true,
             Font = _menuFont,
             Padding = new Padding(4, 5, 4, 5),
             BackColor = MenuSurfaceColor,
@@ -96,9 +113,11 @@ public sealed class TrayApplicationContext : ApplicationContext
             new ToolStripSeparator { Margin = new Padding(8, 3, 8, 3) },
             openCardItem,
             refreshItem,
+            _startupMenuItem,
             new ToolStripSeparator { Margin = new Padding(8, 3, 8, 3) },
             exitItem
         ]);
+        _contextMenu.Opening += (_, _) => SyncStartupUiState();
 
         int initialSize = TrayIconCache.GetSystemTrayIconSize();
         _appliedIconSize = initialSize;
@@ -115,6 +134,8 @@ public sealed class TrayApplicationContext : ApplicationContext
 
         _flyout = new StatusFlyoutForm();
         _flyout.RefreshRequested += () => _ = RefreshNowAsync(isManual: true);
+        _flyout.StartupToggleRequested += ToggleStartupRegistration;
+        SyncStartupUiState();
 
         _deviceMonitor = new DeviceChangeMonitor();
         _deviceMonitor.DeviceChanged += OnDeviceChanged;
@@ -175,6 +196,7 @@ public sealed class TrayApplicationContext : ApplicationContext
 
     private void ShowStatusCardAtCursor()
     {
+        SyncStartupUiState();
         _flyout.UpdateSnapshot(_latestSnapshot, isManualRefreshCompletion: false);
         _flyout.ShowNearPoint(Cursor.Position);
     }
@@ -186,9 +208,50 @@ public sealed class TrayApplicationContext : ApplicationContext
             return;
         }
 
+        SyncStartupUiState();
         _flyout.UpdateSnapshot(_latestSnapshot, isManualRefreshCompletion: false);
         _flyout.ShowNearTrayArea();
         _ = RefreshNowAsync(isManual: false);
+    }
+
+    private void ToggleStartupRegistration()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        try
+        {
+            bool next = !_startupService.IsStartupEnabled;
+            _startupService.SetStartupEnabled(next);
+        }
+        catch (Exception ex)
+        {
+            _latestSnapshot = _latestSnapshot with
+            {
+                DiagnosticNote = $"Startup setting error: {ex.Message}"
+            };
+        }
+
+        SyncStartupUiState();
+    }
+
+    private void SyncStartupUiState()
+    {
+        bool enabled;
+        try
+        {
+            enabled = _startupService.IsStartupEnabled;
+        }
+        catch
+        {
+            enabled = false;
+        }
+
+        _startupMenuItem.Checked = enabled;
+        _startupMenuItem.Text = enabled ? "Start with Windows (On)" : "Start with Windows";
+        _flyout.SetStartupEnabled(enabled);
     }
 
     private void OnDeviceChanged()
@@ -321,6 +384,7 @@ public sealed class TrayApplicationContext : ApplicationContext
         if (_showCardOnFirstProbe)
         {
             _showCardOnFirstProbe = false;
+            SyncStartupUiState();
             _flyout.ShowNearTrayArea();
         }
     }
@@ -385,6 +449,62 @@ public sealed class TrayApplicationContext : ApplicationContext
                 ? MenuPrimaryInkColor   // #0F172A (18.2:1 AAA)
                 : MenuHeaderInkColor;   // #334155 (10.3:1 AAA, crisp readable header)
             base.OnRenderItemText(e);
+        }
+
+        protected override void OnRenderItemCheck(ToolStripItemImageRenderEventArgs e)
+        {
+            Graphics g = e.Graphics;
+            SmoothingMode previousMode = g.SmoothingMode;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+
+            Rectangle r = e.ImageRectangle;
+            float boxSize = Math.Min(16f, Math.Min(r.Width, r.Height) - 2f);
+            if (boxSize < 10f)
+            {
+                boxSize = 14f;
+            }
+
+            var boxRect = new RectangleF(
+                r.X + ((r.Width - boxSize) / 2f),
+                r.Y + ((r.Height - boxSize) / 2f),
+                boxSize,
+                boxSize);
+
+            using (GraphicsPath boxPath = CreateCheckBoxPath(boxRect, 4f))
+            using (var fill = new SolidBrush(Color.FromArgb(29, 78, 216))) // #1D4ED8
+            {
+                g.FillPath(fill, boxPath);
+            }
+
+            float cx = boxRect.X + (boxRect.Width / 2f);
+            float cy = boxRect.Y + (boxRect.Height / 2f);
+            float half = boxSize * 0.28f;
+            using var checkPen = new Pen(Color.White, 1.85f)
+            {
+                StartCap = LineCap.Round,
+                EndCap = LineCap.Round,
+                LineJoin = LineJoin.Round
+            };
+            g.DrawLines(checkPen,
+            [
+                new PointF(cx - half, cy + (half * 0.1f)),
+                new PointF(cx - (half * 0.2f), cy + (half * 0.85f)),
+                new PointF(cx + half, cy - (half * 0.7f))
+            ]);
+
+            g.SmoothingMode = previousMode;
+        }
+
+        private static GraphicsPath CreateCheckBoxPath(RectangleF bounds, float radius)
+        {
+            float d = Math.Min(radius * 2f, Math.Min(bounds.Width, bounds.Height));
+            var path = new GraphicsPath();
+            path.AddArc(bounds.X, bounds.Y, d, d, 180f, 90f);
+            path.AddArc(bounds.Right - d, bounds.Y, d, d, 270f, 90f);
+            path.AddArc(bounds.Right - d, bounds.Bottom - d, d, d, 0f, 90f);
+            path.AddArc(bounds.X, bounds.Bottom - d, d, d, 90f, 90f);
+            path.CloseFigure();
+            return path;
         }
     }
 

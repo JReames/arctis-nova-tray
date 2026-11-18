@@ -2,7 +2,7 @@
 
 ![Arctis Nova 7 System Tray overview](docs/images/hero-banner.png)
 
-**[Download v1.1.0](https://github.com/JReames/arctis-nova-tray/releases/latest)** · **[Visual Guide](docs/VISUAL-GUIDE.md)** · **[MIT License](LICENSE)** · **Windows 11 (.NET 9, zero external packages)**
+**[Download v1.2.0](https://github.com/JReames/arctis-nova-tray/releases/latest)** · **[Visual Guide](docs/VISUAL-GUIDE.md)** · **[MIT License](LICENSE)** · **Windows 11 (.NET 9, zero external packages)**
 
 ---
 
@@ -16,7 +16,8 @@ On top of that, there is no native taskbar indicator showing whether your headse
 - Shows whether your headset is **actually powered on** or just sitting off while the USB receiver stays plugged in, with adaptive dark and light taskbar contrast.
 - Shows **Bluetooth status** in the corner of the icon, including when your headset is connected to your **phone** at the same time as your PC.
 - Shows **live battery percentage, charging state, and hardware mic-mute status** on hover or with a single left-click.
-- Runs alongside **SteelSeries GG and Sonar** without locking audio or USB devices, and writes nothing to `%APPDATA%`, the registry, or Windows Startup folders.
+- Includes an **opt-in Start with Windows setting** right inside the Status Card and right-click tray menu (starts quietly with `--silent` when enabled).
+- Runs alongside **SteelSeries GG and Sonar** without locking audio or USB devices, and writes nothing to `%APPDATA%` or the registry unless you turn on `Start with Windows` (which manages `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\ArctisNovaTray`).
 
 ---
 
@@ -24,11 +25,11 @@ On top of that, there is no native taskbar indicator showing whether your headse
 
 > **Prerequisite**: [.NET 9 Windows Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/9.0) (already installed on most developer machines with .NET 9).
 
-1. **Download & unzip**: Grab **`ArctisNovaTray-v1.1.0-win-x64.zip`** from the [Releases page](https://github.com/JReames/arctis-nova-tray/releases/latest) and extract it anywhere you keep utilities.
+1. **Download & unzip**: Grab **`ArctisNovaTray-v1.2.0-win-x64.zip`** from the [Releases page](https://github.com/JReames/arctis-nova-tray/releases/latest) and extract it anywhere you keep utilities.
 2. **Launch it**: Double-click **`ArctisNovaTray.exe`** (or run `.\Start-ArctisNovaTray.ps1`). The light-mode Status Card pops open in the bottom-right corner right after the first hardware check so you know it is running.
 3. **Pin the icon once**: Click the **`^`** hidden-icons arrow near your Windows 11 clock and drag the headset icon onto your taskbar so it stays visible all day.
 
-Left-click the tray icon anytime to open the Status Card (`Tab`, `F5`, and `Esc` work from the keyboard), hover for a quick text summary (`Nova 7: PC 2.4GHz | BT Connected | 86%`), or right-click to check status, refresh, or exit.
+Left-click the tray icon anytime to open the Status Card (`Tab`, `F5`, and `Esc` work from the keyboard) and toggle **Start with Windows** if you want it to launch automatically when you sign in. Hover for a quick text summary (`Nova 7: PC 2.4GHz | BT Connected | 86%`), or right-click to check status, refresh, toggle startup, or exit.
 
 ---
 
@@ -58,8 +59,12 @@ If you prefer launching or scripting from a terminal, the included PowerShell sc
 # Launch the tray app and pop open the Status Card (or bring it to the front if already running)
 .\Start-ArctisNovaTray.ps1
 
-# Launch quietly in the tray without opening the Status Card on startup (handy for login scripts)
+# Launch quietly in the tray without opening the Status Card on startup (used by Start with Windows)
 .\scripts\Start-ArctisNovaTray.ps1 -Silent
+
+# Enable or disable Windows login startup registration from PowerShell
+.\scripts\Start-ArctisNovaTray.ps1 -EnableStartup
+.\scripts\Start-ArctisNovaTray.ps1 -DisableStartup
 
 # Cleanly stop a running instance and start a fresh one
 .\scripts\Start-ArctisNovaTray.ps1 -Restart
@@ -68,7 +73,7 @@ If you prefer launching or scripting from a terminal, the included PowerShell sc
 .\scripts\Get-ArctisNovaStatus.ps1
 .\scripts\Get-ArctisNovaStatus.ps1 -RawJson
 
-# Stop the running tray app cleanly (removes the tray icon before exiting)
+# Stop the running tray app cleanly (pass -DisableStartup to also remove login auto-start)
 .\scripts\Stop-ArctisNovaTray.ps1
 ```
 
@@ -107,11 +112,16 @@ This app is plain C# (`net9.0-windows` WinForms + GDI+) talking directly to Wind
 dotnet build .\ArctisNovaTray.sln -c Debug
 dotnet build .\ArctisNovaTray.sln -c Release
 
-# Run the 11-case unit, pixel-contrast, and live-hardware test suite
+# Run the 13-case unit, pixel-contrast, startup, and live-hardware test suite
 dotnet run --project .\tests\arctis-nova-tray-tests\ArctisNovaTray.Tests.csproj -c Release
 
 # Probe live hardware JSON directly from the WinExe (pipe to Out-String so PowerShell waits)
 & .\src\arctis-nova-tray\bin\Release\net9.0-windows\ArctisNovaTray.exe --status-json | Out-String
+
+# Manage or inspect Windows login startup registration from the CLI
+& .\src\arctis-nova-tray\bin\Release\net9.0-windows\ArctisNovaTray.exe --startup-status | Out-String
+& .\src\arctis-nova-tray\bin\Release\net9.0-windows\ArctisNovaTray.exe --enable-startup | Out-String
+& .\src\arctis-nova-tray\bin\Release\net9.0-windows\ArctisNovaTray.exe --disable-startup | Out-String
 
 # Export all 5 canonical tray icon states at 16x16, 32x32, and 64x64 PNGs
 & .\src\arctis-nova-tray\bin\Release\net9.0-windows\ArctisNovaTray.exe --export-icons .\artifacts\icons | Out-String
