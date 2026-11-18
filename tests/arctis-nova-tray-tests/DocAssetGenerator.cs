@@ -59,16 +59,17 @@ internal static class DocAssetGenerator
             Charging = BatteryChargingState.Disconnected
         };
 
-        (string Slug, HeadsetSnapshot Snap, RefreshVisualState Refresh, bool CloseHover, CardFocusTarget Focus, DateTimeOffset RefNow)[] cardCases =
+        (string Slug, HeadsetSnapshot Snap, RefreshVisualState Refresh, bool CloseHover, CardFocusTarget Focus, DateTimeOffset RefNow, bool StartupEnabled, bool StartupHover)[] cardCases =
         [
-            ("card-connected", connectedSnap, RefreshVisualState.Normal, false, CardFocusTarget.None, refNowImmediate),
-            ("card-headset-off", headsetOffSnap, RefreshVisualState.Normal, false, CardFocusTarget.None, refNow14Sec),
-            ("card-mic-muted-charging", micMutedChargingSnap, RefreshVisualState.Normal, false, CardFocusTarget.None, refNowImmediate),
-            ("card-disconnected-close-focus", disconnectedSnap, RefreshVisualState.Normal, true, CardFocusTarget.CloseButton, refNow14Sec),
-            ("card-refresh-hover", connectedSnap, RefreshVisualState.Hover, false, CardFocusTarget.RefreshButton, refNowImmediate),
-            ("card-refresh-pressed", connectedSnap, RefreshVisualState.Pressed, false, CardFocusTarget.None, refNowImmediate),
-            ("card-refresh-checking", connectedSnap, RefreshVisualState.Checking, false, CardFocusTarget.None, refNowImmediate),
-            ("card-refresh-updated", connectedSnap, RefreshVisualState.Updated, true, CardFocusTarget.None, refNowImmediate)
+            ("card-connected", connectedSnap, RefreshVisualState.Normal, false, CardFocusTarget.None, refNowImmediate, true, false),
+            ("card-headset-off", headsetOffSnap, RefreshVisualState.Normal, false, CardFocusTarget.None, refNow14Sec, false, false),
+            ("card-mic-muted-charging", micMutedChargingSnap, RefreshVisualState.Normal, false, CardFocusTarget.None, refNowImmediate, true, true),
+            ("card-disconnected-close-focus", disconnectedSnap, RefreshVisualState.Normal, true, CardFocusTarget.CloseButton, refNow14Sec, false, false),
+            ("card-startup-focus", connectedSnap, RefreshVisualState.Normal, false, CardFocusTarget.StartupToggle, refNowImmediate, true, true),
+            ("card-refresh-hover", connectedSnap, RefreshVisualState.Hover, false, CardFocusTarget.RefreshButton, refNowImmediate, false, false),
+            ("card-refresh-pressed", connectedSnap, RefreshVisualState.Pressed, false, CardFocusTarget.None, refNowImmediate, true, false),
+            ("card-refresh-checking", connectedSnap, RefreshVisualState.Checking, false, CardFocusTarget.None, refNowImmediate, true, false),
+            ("card-refresh-updated", connectedSnap, RefreshVisualState.Updated, true, CardFocusTarget.None, refNowImmediate, true, false)
         ];
 
         foreach (var c in cardCases)
@@ -84,7 +85,9 @@ internal static class DocAssetGenerator
                     closePressed: false,
                     keyboardFocus: c.Focus,
                     spinnerAngle: 52f,
-                    referenceNow: c.RefNow);
+                    referenceNow: c.RefNow,
+                    startupEnabled: c.StartupEnabled,
+                    startupHovered: c.StartupHover);
                 bmp.Save(path, ImageFormat.Png);
                 written.Add(path);
             }
@@ -122,8 +125,8 @@ internal static class DocAssetGenerator
         float s = Math.Clamp(scale, 1.0f, 3.0f);
         string summary = TooltipFormatter.FormatMenuSummary(snapshot);
 
-        int canvasW = (int)Math.Round(380f * s);
-        int canvasH = (int)Math.Round(210f * s);
+        int canvasW = (int)Math.Round(390f * s);
+        int canvasH = (int)Math.Round(246f * s);
         var bmp = new Bitmap(canvasW, canvasH, PixelFormat.Format32bppArgb);
 
         using Graphics g = Graphics.FromImage(bmp);
@@ -136,12 +139,13 @@ internal static class DocAssetGenerator
         using var boldFont = new Font("Segoe UI Semibold", 13.33f * s, FontStyle.Bold, GraphicsUnit.Pixel);
 
         float summaryW = g.MeasureString(summary, regFont).Width;
-        float menuW = Math.Max(260f * s, summaryW + (36f * s));
+        float checkColW = 28f * s;
+        float menuW = Math.Max(280f * s, summaryW + checkColW + (30f * s));
         float itemH = 33f * s;
         float sepH = 9f * s;
         float padX = 5f * s;
         float padY = 6f * s;
-        float menuH = (padY * 2f) + (itemH * 4f) + (sepH * 2f);
+        float menuH = (padY * 2f) + (itemH * 5f) + (sepH * 2f);
 
         var menuRect = new RectangleF((canvasW - menuW) / 2f, (canvasH - menuH) / 2f, menuW, menuH);
         DrawSoftShadow(g, menuRect, 6f * s, 8, 18);
@@ -161,8 +165,8 @@ internal static class DocAssetGenerator
         var sfLeft = new StringFormat { Alignment = StringAlignment.Near, LineAlignment = StringAlignment.Center };
 
         float y = menuRect.Y + padY;
-        float textX = menuRect.X + (16f * s);
-        float textW = menuRect.Width - (32f * s);
+        float textX = menuRect.X + checkColW + (12f * s);
+        float textW = menuRect.Width - checkColW - (24f * s);
 
         // 1. Disabled high-contrast summary header (#334155 10.3:1)
         g.DrawString(summary, regFont, headerBrush, new RectangleF(textX, y, textW, itemH), sfLeft);
@@ -184,12 +188,35 @@ internal static class DocAssetGenerator
         g.DrawString("Refresh Now", regFont, primaryBrush, new RectangleF(textX, y, textW, itemH), sfLeft);
         y += itemH;
 
+        // 4. Start with Windows (On) with custom blue check glyph
+        float checkSize = 15f * s;
+        var checkRect = new RectangleF(menuRect.X + (12f * s), y + ((itemH - checkSize) / 2f), checkSize, checkSize);
+        using (GraphicsPath checkBoxPath = RoundRect(checkRect, 4f * s))
+        using (var checkFill = new SolidBrush(Color.FromArgb(29, 78, 216)))
+        {
+            g.FillPath(checkFill, checkBoxPath);
+        }
+        float cx = checkRect.X + (checkRect.Width / 2f);
+        float cy = checkRect.Y + (checkRect.Height / 2f);
+        float half = checkSize * 0.28f;
+        using (var checkPen = new Pen(Color.White, 1.85f * s) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round })
+        {
+            g.DrawLines(checkPen,
+            [
+                new PointF(cx - half, cy + (half * 0.1f)),
+                new PointF(cx - (half * 0.2f), cy + (half * 0.85f)),
+                new PointF(cx + half, cy - (half * 0.7f))
+            ]);
+        }
+        g.DrawString("Start with Windows (On)", regFont, primaryBrush, new RectangleF(textX, y, textW, itemH), sfLeft);
+        y += itemH;
+
         // Separator 2
         float sepY2 = y + (sepH / 2f);
         g.DrawLine(sepPen, menuRect.X + (12f * s), sepY2, menuRect.Right - (12f * s), sepY2);
         y += sepH;
 
-        // 4. Exit
+        // 5. Exit
         g.DrawString("Exit", regFont, primaryBrush, new RectangleF(textX, y, textW, itemH), sfLeft);
 
         return bmp;
@@ -282,7 +309,11 @@ internal static class DocAssetGenerator
 
         var written = new List<string>();
 
-        // 1. Export 48x48 inline transparent icons for Markdown tables
+        // 1. Export 48x48 inline transparent icons for Markdown tables and multi-res Win32 .ico
+        string appIcoPath = Path.Combine(repoRoot, "src", "arctis-nova-tray", "assets", "arctis-nova-tray.ico");
+        TrayIconRenderer.WriteApplicationIco(appIcoPath);
+        written.Add(appIcoPath);
+
         foreach (var (name, key) in TrayIconRenderer.CanonicalExportStates)
         {
             string iconPath = Path.Combine(iconsDir, $"{name}.png");
@@ -291,9 +322,9 @@ internal static class DocAssetGenerator
             written.Add(iconPath);
         }
 
-        // 2. Hero Banner (1280 x 620, 2x supersampled)
+        // 2. Hero Banner (1280 x 650, 2x supersampled)
         string heroPath = Path.Combine(imagesDir, "hero-banner.png");
-        using (Bitmap hero = RenderSupersampled(1280, 620, DrawHeroBanner))
+        using (Bitmap hero = RenderSupersampled(1280, 650, DrawHeroBanner))
         {
             hero.Save(heroPath, ImageFormat.Png);
         }
@@ -307,9 +338,9 @@ internal static class DocAssetGenerator
         }
         written.Add(guidePath);
 
-        // 4. Annotated Status Card + Taskbar Pinning Guide (1080 x 620, 2x supersampled)
+        // 4. Annotated Status Card + Taskbar Pinning Guide (1080 x 690, 2x supersampled)
         string annotatedPath = Path.Combine(imagesDir, "status-card-annotated.png");
-        using (Bitmap annotated = RenderSupersampled(1080, 620, DrawAnnotatedCard))
+        using (Bitmap annotated = RenderSupersampled(1080, 690, DrawAnnotatedCard))
         {
             annotated.Save(annotatedPath, ImageFormat.Png);
         }
@@ -368,7 +399,7 @@ internal static class DocAssetGenerator
     private static void DrawHeroBanner(Graphics g)
     {
         const int W = 1280;
-        const int H = 620;
+        const int H = 650;
 
         using (var bg = new LinearGradientBrush(
             new Rectangle(0, 0, W, H),
@@ -380,7 +411,7 @@ internal static class DocAssetGenerator
         }
 
         DrawSoftGlow(g, new RectangleF(750, 35, 490, 490), Color.FromArgb(45, 187, 247, 208));
-        DrawSoftGlow(g, new RectangleF(60, 330, 520, 260), Color.FromArgb(45, 191, 219, 254));
+        DrawSoftGlow(g, new RectangleF(60, 340, 520, 260), Color.FromArgb(45, 191, 219, 254));
 
         using (var framePen = new Pen(Color.FromArgb(203, 213, 225), 1.5f))
         using (GraphicsPath outer = RoundRect(new RectangleF(1f, 1f, W - 2f, H - 2f), 16f))
@@ -393,7 +424,7 @@ internal static class DocAssetGenerator
         using var eyebrowFont = new Font("Segoe UI Semibold", 11.5f, FontStyle.Bold, GraphicsUnit.Pixel);
         DrawPill(
             g,
-            new RectangleF(leftX, 52f, 344f, 28f),
+            new RectangleF(leftX, 66f, 344f, 28f),
             "WINDOWS 11 SYSTEM TRAY  ·  LIGHTWEIGHT & NATIVE",
             eyebrowFont,
             Color.FromArgb(239, 246, 255),
@@ -402,8 +433,8 @@ internal static class DocAssetGenerator
 
         using var heroTitleFont = new Font("Segoe UI", 43f, FontStyle.Bold, GraphicsUnit.Pixel);
         using var inkBrush = new SolidBrush(Color.FromArgb(15, 23, 42));
-        g.DrawString("Arctis Nova 7", heroTitleFont, inkBrush, leftX - 3f, 96f);
-        g.DrawString("System Tray", heroTitleFont, inkBrush, leftX - 3f, 146f);
+        g.DrawString("Arctis Nova 7", heroTitleFont, inkBrush, leftX - 3f, 110f);
+        g.DrawString("System Tray", heroTitleFont, inkBrush, leftX - 3f, 160f);
 
         using var taglineFont = new Font("Segoe UI", 18.5f, FontStyle.Regular, GraphicsUnit.Pixel);
         using var slateBrush = new SolidBrush(Color.FromArgb(51, 65, 85));
@@ -411,17 +442,17 @@ internal static class DocAssetGenerator
             "See at a glance if your headset is actually on, connected to your PC, and paired to Bluetooth.",
             taglineFont,
             slateBrush,
-            new RectangleF(leftX, 212f, 556f, 66f));
+            new RectangleF(leftX, 226f, 556f, 66f));
 
         using var chipFont = new Font("Segoe UI Semibold", 12.5f, FontStyle.Bold, GraphicsUnit.Pixel);
-        string[] chips = ["2.4 GHz + Phone BT", "Live Battery %", "Runs Beside GG"];
+        string[] chips = ["2.4 GHz + Phone BT", "Live Battery %", "Start with Windows"];
         float chipX = leftX;
         foreach (string chip in chips)
         {
             float cw = g.MeasureString(chip, chipFont).Width + 24f;
             DrawPill(
                 g,
-                new RectangleF(chipX, 288f, cw, 30f),
+                new RectangleF(chipX, 302f, cw, 30f),
                 chip,
                 chipFont,
                 Color.White,
@@ -431,9 +462,9 @@ internal static class DocAssetGenerator
         }
 
         using var sectionCapFont = new Font("Segoe UI Semibold", 11.5f, FontStyle.Bold, GraphicsUnit.Pixel);
-        g.DrawString("LIVE ON YOUR WINDOWS 11 TASKBAR", sectionCapFont, slateBrush, leftX + 2f, 352f);
+        g.DrawString("LIVE ON YOUR WINDOWS 11 TASKBAR", sectionCapFont, slateBrush, leftX + 2f, 366f);
 
-        var taskbarRect = new RectangleF(leftX, 376f, 566f, 92f);
+        var taskbarRect = new RectangleF(leftX, 390f, 566f, 92f);
         DrawSoftShadow(g, taskbarRect, 16f, 10, 18);
         using (GraphicsPath tbPath = RoundRect(taskbarRect, 16f))
         using (var tbBrush = new LinearGradientBrush(
@@ -490,23 +521,24 @@ internal static class DocAssetGenerator
         using var captionFont = new Font("Segoe UI Semibold", 13f, FontStyle.Bold, GraphicsUnit.Pixel);
         using var greenBrush = new SolidBrush(Color.FromArgb(22, 163, 74));
         using var deepGreenBrush = new SolidBrush(Color.FromArgb(20, 83, 45));
-        g.FillEllipse(greenBrush, leftX + 68f, 487f, 8f, 8f);
+        g.FillEllipse(greenBrush, leftX + 68f, 501f, 8f, 8f);
         g.DrawString(
             "Green headset + blue badge: awake on 2.4 GHz and connected to Bluetooth",
             captionFont,
             deepGreenBrush,
             leftX + 82f,
-            481f);
+            495f);
 
-        // Right column: Actual Light Mode StatusFlyoutForm rendered at exact 436:392 aspect ratio (506 x 455)
-        var cardTarget = new RectangleF(708f, 68f, 506f, 455f);
+        // Right column: Actual Light Mode StatusFlyoutForm rendered at exact 436:444 aspect ratio (496 x 505)
+        var cardTarget = new RectangleF(714f, 42f, 496f, 505f);
         DrawSoftShadow(g, cardTarget, 12f, 18, 24);
 
         HeadsetSnapshot heroSnapshot = CreateShowcaseSnapshot();
         using (Bitmap cardBmp = StatusFlyoutForm.RenderCardBitmap(
             heroSnapshot,
             scale: 2.4f,
-            referenceNow: heroSnapshot.Timestamp.AddSeconds(2)))
+            referenceNow: heroSnapshot.Timestamp.AddSeconds(2),
+            startupEnabled: true))
         using (GraphicsPath clipPath = RoundRect(cardTarget, 12f))
         {
             GraphicsState saved = g.Save();
@@ -524,7 +556,7 @@ internal static class DocAssetGenerator
             "Left-click the tray icon anytime to open the live Status Card",
             cardFootFont,
             slateBrush,
-            new RectangleF(cardTarget.X - 10f, cardTarget.Bottom + 16f, cardTarget.Width + 20f, 24f),
+            new RectangleF(cardTarget.X - 10f, cardTarget.Bottom + 18f, cardTarget.Width + 20f, 24f),
             sfCenter);
     }
 
@@ -676,7 +708,7 @@ internal static class DocAssetGenerator
     private static void DrawAnnotatedCard(Graphics g)
     {
         const int W = 1080;
-        const int H = 620;
+        const int H = 690;
 
         using (var bg = new LinearGradientBrush(
             new Rectangle(0, 0, W, H),
@@ -706,15 +738,16 @@ internal static class DocAssetGenerator
             48f,
             58f);
 
-        // Render Status Card at left (408 x 367 logical -> exact 436:392 aspect ratio, k = 0.9362)
-        var cardRect = new RectangleF(46f, 96f, 408f, 367f);
+        // Render Status Card at left (408 x 415.5 logical -> exact 436:444 aspect ratio)
+        var cardRect = new RectangleF(46f, 96f, 408f, 415.5f);
         DrawSoftShadow(g, cardRect, 12f, 14, 18);
 
         HeadsetSnapshot snap = CreateShowcaseSnapshot();
         using (Bitmap cardBmp = StatusFlyoutForm.RenderCardBitmap(
             snap,
             scale: 2.0f,
-            referenceNow: snap.Timestamp.AddSeconds(2)))
+            referenceNow: snap.Timestamp.AddSeconds(2),
+            startupEnabled: true))
         using (GraphicsPath cardClip = RoundRect(cardRect, 12f))
         {
             GraphicsState st = g.Save();
@@ -733,20 +766,21 @@ internal static class DocAssetGenerator
             (cardRect.Top + (107f * k), "Headset Wireless Link", "Tells you if the headset is actually on, not just sitting off on your desk."),
             (cardRect.Top + (161f * k), "USB-C Receiver Presence", "Confirms the SteelSeries receiver is plugged in and active or waiting."),
             (cardRect.Top + (215f * k), "Phone or PC Bluetooth", "Reads Bluetooth state from the headset, even when paired to your phone."),
-            (cardRect.Top + (294f * k), "Battery Gauge & Tactile Refresh", "High-contrast battery bar, live timestamp, and tactile Refresh (or F5).")
+            (cardRect.Top + (280f * k), "Battery Gauge & Standby Bar", "Color-coded battery bar when on, or a 4-segment standby bar when off."),
+            (cardRect.Top + (352f * k), "Start with Windows & Refresh", "Opt-in Windows login startup toggle, live 12h timestamp, and tactile Refresh (F5).")
         ];
 
-        using var callTitleFont = new Font("Segoe UI Semibold", 14f, FontStyle.Bold, GraphicsUnit.Pixel);
-        using var callBodyFont = new Font("Segoe UI", 12.8f, FontStyle.Regular, GraphicsUnit.Pixel);
-        using var numFont = new Font("Segoe UI Semibold", 12.5f, FontStyle.Bold, GraphicsUnit.Pixel);
+        using var callTitleFont = new Font("Segoe UI Semibold", 13.8f, FontStyle.Bold, GraphicsUnit.Pixel);
+        using var callBodyFont = new Font("Segoe UI", 12.2f, FontStyle.Regular, GraphicsUnit.Pixel);
+        using var numFont = new Font("Segoe UI Semibold", 12.2f, FontStyle.Bold, GraphicsUnit.Pixel);
         using var connectorPen = new Pen(Color.FromArgb(37, 99, 235), 1.8f);
         using var blueBrush = new SolidBrush(Color.FromArgb(37, 99, 235));
 
         float callY = 96f;
         const float callX = 516f;
         const float callW = 516f;
-        const float callH = 68f;
-        const float callGap = 7.2f;
+        const float callH = 62f;
+        const float callGap = 8.7f;
 
         for (int i = 0; i < callouts.Length; i++)
         {
@@ -774,19 +808,19 @@ internal static class DocAssetGenerator
                 g.DrawPath(boxBorder, boxPath);
             }
 
-            var numRect = new RectangleF(box.X + 12f, boxMidY - 13f, 26f, 26f);
+            var numRect = new RectangleF(box.X + 12f, boxMidY - 12.5f, 25f, 25f);
             g.FillEllipse(blueBrush, numRect);
             var sfCenter = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
             g.DrawString((i + 1).ToString(), numFont, Brushes.White, numRect, sfCenter);
 
             float tx = numRect.Right + 11f;
-            g.DrawString(item.Title, callTitleFont, inkBrush, tx, box.Y + 10f);
-            g.DrawString(item.Body, callBodyFont, slateBrush, new RectangleF(tx, box.Y + 32f, box.Right - tx - 10f, 32f));
+            g.DrawString(item.Title, callTitleFont, inkBrush, tx, box.Y + 8f);
+            g.DrawString(item.Body, callBodyFont, slateBrush, new RectangleF(tx, box.Y + 28f, box.Right - tx - 10f, 30f));
 
             callY += callH + callGap;
         }
 
-        var tipRect = new RectangleF(48f, 492f, 984f, 98f);
+        var tipRect = new RectangleF(48f, 548f, 984f, 106f);
         using (GraphicsPath tipPath = RoundRect(tipRect, 12f))
         using (var tipFill = new SolidBrush(Color.FromArgb(239, 246, 255)))
         using (var tipBorder = new Pen(Color.FromArgb(147, 197, 253), 1.3f))

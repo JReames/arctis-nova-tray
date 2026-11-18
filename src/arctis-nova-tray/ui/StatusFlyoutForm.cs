@@ -20,6 +20,7 @@ public enum RefreshVisualState
 public enum CardFocusTarget
 {
     None,
+    StartupToggle,
     RefreshButton,
     CloseButton
 }
@@ -27,7 +28,7 @@ public enum CardFocusTarget
 public sealed partial class StatusFlyoutForm : Form
 {
     public const int LogicalWidth = 436;
-    public const int LogicalHeight = 392;
+    public const int LogicalHeight = 444;
 
     private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
     private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
@@ -39,14 +40,19 @@ public sealed partial class StatusFlyoutForm : Form
     private readonly System.Windows.Forms.Timer _animTimer;
     private readonly System.Windows.Forms.Timer _ageTickTimer;
     private readonly ToolTip _toolTip;
+    private readonly Icon? _ownedWindowIcon;
 
     private HeadsetSnapshot _snapshot = HeadsetSnapshot.CreateInitial();
     private HeadsetSnapshot? _bufferedManualSnapshot;
 
+    private RectangleF _startupRowBounds;
     private RectangleF _refreshButtonBounds;
     private RectangleF _closeButtonBounds;
     private RectangleF _subtitleBounds;
 
+    private bool _startupEnabled;
+    private bool _startupHovered;
+    private bool _startupPressed;
     private bool _refreshHovered;
     private bool _refreshPressed;
     private bool _closeHovered;
@@ -62,6 +68,7 @@ public sealed partial class StatusFlyoutForm : Form
     private long _lastDeactivatedTick;
 
     public event Action? RefreshRequested;
+    public event Action? StartupToggleRequested;
 
     public StatusFlyoutForm()
     {
@@ -76,6 +83,22 @@ public sealed partial class StatusFlyoutForm : Form
         AutoScaleMode = AutoScaleMode.None;
         AccessibleName = "Arctis Nova 7 Status Card";
         AccessibleRole = AccessibleRole.Dialog;
+
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(Environment.ProcessPath) && File.Exists(Environment.ProcessPath))
+            {
+                _ownedWindowIcon = Icon.ExtractAssociatedIcon(Environment.ProcessPath);
+                if (_ownedWindowIcon is not null)
+                {
+                    Icon = _ownedWindowIcon;
+                }
+            }
+        }
+        catch
+        {
+            // Ignore icon extraction errors on restricted hosts; tray NotifyIcon still renders dynamically.
+        }
 
         _animTimer = new System.Windows.Forms.Timer { Interval = 30 };
         _animTimer.Tick += OnAnimationTick;
@@ -101,6 +124,20 @@ public sealed partial class StatusFlyoutForm : Form
 
     public bool WasRecentlyDeactivated =>
         Environment.TickCount64 - Interlocked.Read(ref _lastDeactivatedTick) < 220;
+
+    public void SetStartupEnabled(bool enabled)
+    {
+        if (_startupEnabled == enabled)
+        {
+            return;
+        }
+
+        _startupEnabled = enabled;
+        if (IsHandleCreated && Visible)
+        {
+            Invalidate();
+        }
+    }
 
     public void UpdateSnapshot(HeadsetSnapshot snapshot, bool isManualRefreshCompletion = false)
     {
@@ -180,6 +217,7 @@ public sealed partial class StatusFlyoutForm : Form
     private void ShowAndActivate()
     {
         _keyboardFocus = CardFocusTarget.None;
+        _startupPressed = false;
         _refreshPressed = false;
         _closePressed = false;
 
@@ -201,6 +239,8 @@ public sealed partial class StatusFlyoutForm : Form
         if (!Visible)
         {
             _ageTickTimer.Stop();
+            _startupHovered = false;
+            _startupPressed = false;
             _refreshHovered = false;
             _refreshPressed = false;
             _closeHovered = false;
@@ -245,16 +285,24 @@ public sealed partial class StatusFlyoutForm : Form
                 return true;
 
             case Keys.Tab:
-                _keyboardFocus = _keyboardFocus == CardFocusTarget.RefreshButton
-                    ? CardFocusTarget.CloseButton
-                    : CardFocusTarget.RefreshButton;
+                _keyboardFocus = _keyboardFocus switch
+                {
+                    CardFocusTarget.None => CardFocusTarget.StartupToggle,
+                    CardFocusTarget.StartupToggle => CardFocusTarget.RefreshButton,
+                    CardFocusTarget.RefreshButton => CardFocusTarget.CloseButton,
+                    _ => CardFocusTarget.StartupToggle
+                };
                 Invalidate();
                 return true;
 
             case Keys.Tab | Keys.Shift:
-                _keyboardFocus = _keyboardFocus == CardFocusTarget.CloseButton
-                    ? CardFocusTarget.RefreshButton
-                    : CardFocusTarget.CloseButton;
+                _keyboardFocus = _keyboardFocus switch
+                {
+                    CardFocusTarget.None => CardFocusTarget.CloseButton,
+                    CardFocusTarget.CloseButton => CardFocusTarget.RefreshButton,
+                    CardFocusTarget.RefreshButton => CardFocusTarget.StartupToggle,
+                    _ => CardFocusTarget.CloseButton
+                };
                 Invalidate();
                 return true;
 
@@ -263,6 +311,10 @@ public sealed partial class StatusFlyoutForm : Form
                 if (_keyboardFocus == CardFocusTarget.CloseButton)
                 {
                     Hide();
+                }
+                else if (_keyboardFocus == CardFocusTarget.StartupToggle)
+                {
+                    StartupToggleRequested?.Invoke();
                 }
                 else
                 {
@@ -278,15 +330,17 @@ public sealed partial class StatusFlyoutForm : Form
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
+        bool overStartup = _startupRowBounds.Contains(e.Location);
         bool overRefresh = _refreshButtonBounds.Contains(e.Location);
         bool overClose = _closeButtonBounds.Contains(e.Location);
         bool overSub = _subtitleBounds.Contains(e.Location);
 
-        if (overRefresh != _refreshHovered || overClose != _closeHovered)
+        if (overStartup != _startupHovered || overRefresh != _refreshHovered || overClose != _closeHovered)
         {
+            _startupHovered = overStartup;
             _refreshHovered = overRefresh;
             _closeHovered = overClose;
-            Cursor = (overRefresh || overClose) ? Cursors.Hand : Cursors.Default;
+            Cursor = (overStartup || overRefresh || overClose) ? Cursors.Hand : Cursors.Default;
             Invalidate();
         }
 
@@ -294,9 +348,11 @@ public sealed partial class StatusFlyoutForm : Form
             ? "Close (Esc)"
             : overRefresh
                 ? "Check headset status now (F5)"
-                : overSub && !string.IsNullOrWhiteSpace(_snapshot.DongleVidPid)
-                    ? $"USB Receiver ID: {_snapshot.DongleVidPid}"
-                    : null;
+                : overStartup
+                    ? "Automatically start quietly in your system tray when you sign in to Windows"
+                    : overSub && !string.IsNullOrWhiteSpace(_snapshot.DongleVidPid)
+                        ? $"USB Receiver ID: {_snapshot.DongleVidPid}"
+                        : null;
 
         if (!string.Equals(_activeTooltipCaption, desiredTip, StringComparison.Ordinal))
         {
@@ -325,6 +381,12 @@ public sealed partial class StatusFlyoutForm : Form
             _closePressed = true;
             Invalidate();
         }
+        else if (_startupRowBounds.Contains(e.Location))
+        {
+            _keyboardFocus = CardFocusTarget.None;
+            _startupPressed = true;
+            Invalidate();
+        }
     }
 
     protected override void OnMouseUp(MouseEventArgs e)
@@ -337,8 +399,10 @@ public sealed partial class StatusFlyoutForm : Form
 
         bool wasRefreshPressed = _refreshPressed;
         bool wasClosePressed = _closePressed;
+        bool wasStartupPressed = _startupPressed;
         _refreshPressed = false;
         _closePressed = false;
+        _startupPressed = false;
 
         if (wasClosePressed && _closeButtonBounds.Contains(e.Location))
         {
@@ -352,7 +416,13 @@ public sealed partial class StatusFlyoutForm : Form
             return;
         }
 
-        if (wasRefreshPressed || wasClosePressed)
+        if (wasStartupPressed && _startupRowBounds.Contains(e.Location))
+        {
+            StartupToggleRequested?.Invoke();
+            return;
+        }
+
+        if (wasRefreshPressed || wasClosePressed || wasStartupPressed)
         {
             Invalidate();
         }
@@ -361,8 +431,10 @@ public sealed partial class StatusFlyoutForm : Form
     protected override void OnMouseLeave(EventArgs e)
     {
         base.OnMouseLeave(e);
-        if (_refreshHovered || _closeHovered || _refreshPressed || _closePressed || _activeTooltipCaption is not null)
+        if (_startupHovered || _startupPressed || _refreshHovered || _closeHovered || _refreshPressed || _closePressed || _activeTooltipCaption is not null)
         {
+            _startupHovered = false;
+            _startupPressed = false;
             _refreshHovered = false;
             _closeHovered = false;
             _refreshPressed = false;
@@ -452,6 +524,7 @@ public sealed partial class StatusFlyoutForm : Form
             _ageTickTimer.Stop();
             _ageTickTimer.Dispose();
             _toolTip.Dispose();
+            _ownedWindowIcon?.Dispose();
         }
 
         base.Dispose(disposing);
@@ -494,7 +567,9 @@ public sealed partial class StatusFlyoutForm : Form
         bool closePressed = false,
         CardFocusTarget keyboardFocus = CardFocusTarget.None,
         float spinnerAngle = 42f,
-        DateTimeOffset? referenceNow = null)
+        DateTimeOffset? referenceNow = null,
+        bool startupEnabled = false,
+        bool startupHovered = false)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         float clampedScale = Math.Clamp(scale, 1.0f, 3.0f);
@@ -511,9 +586,13 @@ public sealed partial class StatusFlyoutForm : Form
             refreshState,
             closeHovered,
             closePressed,
+            startupEnabled,
+            startupHovered,
+            false,
             keyboardFocus,
             spinnerAngle,
             referenceNow ?? snapshot.Timestamp,
+            out _,
             out _,
             out _,
             out _);
@@ -530,9 +609,13 @@ public sealed partial class StatusFlyoutForm : Form
             GetEffectiveRefreshVisualState(),
             _closeHovered,
             _closePressed && _closeHovered,
+            _startupEnabled,
+            _startupHovered,
+            _startupPressed && _startupHovered,
             _keyboardFocus,
             _spinnerAngle,
             DateTimeOffset.Now,
+            out _startupRowBounds,
             out _refreshButtonBounds,
             out _closeButtonBounds,
             out _subtitleBounds);
@@ -546,9 +629,13 @@ public sealed partial class StatusFlyoutForm : Form
         RefreshVisualState refreshState,
         bool closeHovered,
         bool closePressed,
+        bool startupEnabled,
+        bool startupHovered,
+        bool startupPressed,
         CardFocusTarget keyboardFocus,
         float spinnerAngle,
         DateTimeOffset now,
+        out RectangleF startupRowBounds,
         out RectangleF refreshButtonBounds,
         out RectangleF closeButtonBounds,
         out RectangleF subtitleBounds)
@@ -687,11 +774,25 @@ public sealed partial class StatusFlyoutForm : Form
         y += rowHeight + rowGap;
 
         DrawBatteryRow(g, new RectangleF(pad, y, rowWidth, 68f * s), snapshot, rowLabelFont, rowValueFont, rowHelperFont, s);
+        y += (68f * s) + rowGap;
 
-        // 3. Footer: Symmetric 21px spacing below Battery row (314 -> 335) and above bottom frame (371 -> 392)
+        // 3. Opt-in Start with Windows setting row (y = 322..366)
+        startupRowBounds = new RectangleF(pad, y, rowWidth, 44f * s);
+        DrawStartupToggleRow(
+            g,
+            startupRowBounds,
+            startupEnabled,
+            startupHovered,
+            startupPressed,
+            keyboardFocus == CardFocusTarget.StartupToggle,
+            rowLabelFont,
+            rowValueFont,
+            s);
+
+        // 4. Footer: Symmetric 21px spacing below Startup row (366 -> 387) and above bottom frame (423 -> 444)
         float btnW = 130f * s;
         float btnH = 36f * s;
-        float footerTop = 335f * s;
+        float footerTop = 387f * s;
         refreshButtonBounds = new RectangleF(width - pad - btnW, footerTop, btnW, btnH);
 
         DrawFooterTimestamp(
@@ -1229,6 +1330,122 @@ public sealed partial class StatusFlyoutForm : Form
                 g.FillPath(segFill, segPath);
                 g.DrawPath(segBorder, segPath);
             }
+        }
+    }
+
+    private static void DrawStartupToggleRow(
+        Graphics g,
+        RectangleF bounds,
+        bool enabled,
+        bool hovered,
+        bool pressed,
+        bool focused,
+        Font labelFont,
+        Font valueFont,
+        float scale)
+    {
+        Color rowFill = pressed
+            ? Color.FromArgb(219, 234, 254) // #DBEAFE
+            : hovered
+                ? Color.FromArgb(239, 246, 255) // #EFF6FF
+                : Color.FromArgb(241, 245, 249); // #F1F5F9
+        Color rowBorder = pressed
+            ? Color.FromArgb(29, 78, 216)   // #1D4ED8
+            : hovered
+                ? Color.FromArgb(37, 99, 235) // #2563EB
+                : Color.FromArgb(124, 142, 166); // #7C8EA6 (>= 3.05:1 WCAG 1.4.11)
+        float borderWidth = (hovered || pressed) ? 1.4f * scale : 1.2f * scale;
+
+        using (GraphicsPath box = CreateRoundPath(bounds, 8f * scale))
+        using (var fill = new SolidBrush(rowFill))
+        using (var border = new Pen(rowBorder, borderWidth))
+        {
+            g.FillPath(fill, box);
+            g.DrawPath(border, box);
+        }
+
+        float innerPad = 14f * scale;
+        Color labelColor = (hovered || pressed)
+            ? Color.FromArgb(15, 23, 42)  // #0F172A (16.7:1 AAA)
+            : Color.FromArgb(51, 65, 85); // #334155 (9.5:1 AAA)
+        using var labelBrush = new SolidBrush(labelColor);
+
+        var sfLeft = new StringFormat { Alignment = StringAlignment.Near, LineAlignment = StringAlignment.Center };
+        var sfRight = new StringFormat { Alignment = StringAlignment.Far, LineAlignment = StringAlignment.Center };
+
+        float switchW = 40f * scale;
+        float switchH = 22f * scale;
+        var switchRect = new RectangleF(
+            bounds.Right - innerPad - switchW,
+            bounds.Top + ((bounds.Height - switchH) / 2f),
+            switchW,
+            switchH);
+
+        float labelWidth = Math.Max(140f * scale, switchRect.Left - bounds.Left - innerPad - (48f * scale));
+        g.DrawString(
+            "Start with Windows",
+            labelFont,
+            labelBrush,
+            new RectangleF(bounds.Left + innerPad, bounds.Top, labelWidth, bounds.Height),
+            sfLeft);
+
+        string stateText = enabled ? "On" : "Off";
+        Color stateColor = enabled
+            ? Color.FromArgb(30, 64, 175)  // #1E40AF (7.7:1 AAA vs #F1F5F9)
+            : Color.FromArgb(51, 65, 85);  // #334155 (9.5:1 AAA vs #F1F5F9)
+        Font stateFont = enabled ? valueFont : labelFont;
+        using var stateBrush = new SolidBrush(stateColor);
+        g.DrawString(
+            stateText,
+            stateFont,
+            stateBrush,
+            new RectangleF(bounds.Left + innerPad + labelWidth, bounds.Top, switchRect.Left - (bounds.Left + innerPad + labelWidth) - (10f * scale), bounds.Height),
+            sfRight);
+
+        if (focused)
+        {
+            DrawFocusRing(g, switchRect, switchH / 2f, scale);
+        }
+
+        if (enabled)
+        {
+            Color trackColor = pressed
+                ? Color.FromArgb(30, 58, 138)  // #1E3A8A
+                : hovered
+                    ? Color.FromArgb(30, 64, 175) // #1E40AF
+                    : Color.FromArgb(29, 78, 216); // #1D4ED8 (5.8:1 vs #F1F5F9)
+            using GraphicsPath trackPath = CreateRoundPath(switchRect, switchH / 2f);
+            using var trackBrush = new SolidBrush(trackColor);
+            g.FillPath(trackBrush, trackPath);
+
+            float thumbSize = 16f * scale;
+            var thumbRect = new RectangleF(
+                switchRect.Right - (3f * scale) - thumbSize,
+                switchRect.Top + ((switchRect.Height - thumbSize) / 2f),
+                thumbSize,
+                thumbSize);
+            using var thumbBrush = new SolidBrush(Color.White);
+            g.FillEllipse(thumbBrush, thumbRect);
+        }
+        else
+        {
+            Color offBorder = (hovered || pressed)
+                ? Color.FromArgb(30, 41, 59)  // #1E293B
+                : Color.FromArgb(71, 85, 105); // #475569 (6.92:1 WCAG 1.4.11)
+            using GraphicsPath trackPath = CreateRoundPath(switchRect, switchH / 2f);
+            using var trackBrush = new SolidBrush(Color.White);
+            using var trackBorderPen = new Pen(offBorder, 1.5f * scale);
+            g.FillPath(trackBrush, trackPath);
+            g.DrawPath(trackBorderPen, trackPath);
+
+            float thumbSize = 14f * scale;
+            var thumbRect = new RectangleF(
+                switchRect.X + (4f * scale),
+                switchRect.Top + ((switchRect.Height - thumbSize) / 2f),
+                thumbSize,
+                thumbSize);
+            using var thumbBrush = new SolidBrush(offBorder);
+            g.FillEllipse(thumbBrush, thumbRect);
         }
     }
 

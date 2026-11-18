@@ -135,6 +135,135 @@ public static partial class TrayIconRenderer
         return writtenFiles;
     }
 
+    /// <summary>
+    /// Writes a multi-resolution Windows .ico file (16, 24, 32, 48, 64, 128 DIB + 256 PNG)
+    /// compatible with csc.exe /win32icon, Windows Explorer, and Icon.ExtractAssociatedIcon.
+    /// </summary>
+    public static void WriteApplicationIco(string outputPath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
+        string fullPath = Path.GetFullPath(outputPath);
+        string? directory = Path.GetDirectoryName(fullPath);
+        if (!string.IsNullOrEmpty(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        int[] iconSizes = [16, 24, 32, 48, 64, 128, 256];
+        var key = new TrayVisualKey(HeadsetBaseVisual.PcConnected, BluetoothBadgeVisual.Connected);
+        var entries = new List<(int Size, byte[] Payload)>(iconSizes.Length);
+
+        foreach (int size in iconSizes)
+        {
+            using Bitmap bmp = RenderBitmap(key, size);
+            byte[] payload = size == 256 ? EncodePngFrame(bmp) : EncodeDibFrame(bmp, size);
+            entries.Add((size, payload));
+        }
+
+        using var fs = new FileStream(fullPath, FileMode.Create, FileAccess.Write, FileShare.None);
+        using var writer = new BinaryWriter(fs);
+
+        // ICONDIR (6 bytes): Reserved=0, Type=1 (icon), Count=7
+        writer.Write((ushort)0);
+        writer.Write((ushort)1);
+        writer.Write((ushort)entries.Count);
+
+        uint nextOffset = (uint)(6 + (16 * entries.Count));
+        foreach (var (size, payload) in entries)
+        {
+            byte dim = size == 256 ? (byte)0 : (byte)size;
+            writer.Write(dim);                  // bWidth
+            writer.Write(dim);                  // bHeight
+            writer.Write((byte)0);              // bColorCount
+            writer.Write((byte)0);              // bReserved
+            writer.Write((ushort)1);            // wPlanes
+            writer.Write((ushort)32);           // wBitCount
+            writer.Write((uint)payload.Length); // dwBytesInRes
+            writer.Write(nextOffset);           // dwImageOffset
+            nextOffset += (uint)payload.Length;
+        }
+
+        foreach (var (_, payload) in entries)
+        {
+            writer.Write(payload);
+        }
+    }
+
+    private static byte[] EncodePngFrame(Bitmap bmp)
+    {
+        using var ms = new MemoryStream();
+        bmp.Save(ms, ImageFormat.Png);
+        return ms.ToArray();
+    }
+
+    private static byte[] EncodeDibFrame(Bitmap bmp, int size)
+    {
+        int xorStride = size * 4;
+        int xorBytes = xorStride * size;
+        int andStride = ((size + 31) / 32) * 4;
+        int andBytes = andStride * size;
+
+        using var ms = new MemoryStream(40 + xorBytes + andBytes);
+        using var writer = new BinaryWriter(ms);
+
+        // BITMAPINFOHEADER (40 bytes)
+        writer.Write((uint)40);                 // biSize
+        writer.Write(size);                     // biWidth
+        writer.Write(size * 2);                 // biHeight (XOR + AND)
+        writer.Write((ushort)1);                // biPlanes
+        writer.Write((ushort)32);               // biBitCount
+        writer.Write((uint)0);                  // biCompression (BI_RGB)
+        writer.Write((uint)(xorBytes + andBytes));
+        writer.Write(0);                        // biXPelsPerMeter
+        writer.Write(0);                        // biYPelsPerMeter
+        writer.Write((uint)0);                  // biClrUsed
+        writer.Write((uint)0);                  // biClrImportant
+
+        BitmapData data = bmp.LockBits(
+            new Rectangle(0, 0, size, size),
+            ImageLockMode.ReadOnly,
+            PixelFormat.Format32bppArgb);
+
+        byte[][] rowsTopDown = new byte[size][];
+        try
+        {
+            for (int y = 0; y < size; y++)
+            {
+                byte[] row = new byte[xorStride];
+                Marshal.Copy(IntPtr.Add(data.Scan0, y * data.Stride), row, 0, xorStride);
+                rowsTopDown[y] = row;
+            }
+        }
+        finally
+        {
+            bmp.UnlockBits(data);
+        }
+
+        // Bottom-up 32bpp BGRA XOR mask
+        for (int y = size - 1; y >= 0; y--)
+        {
+            writer.Write(rowsTopDown[y]);
+        }
+
+        // Bottom-up 1bpp AND mask (1 = transparent where alpha == 0)
+        byte[] andRow = new byte[andStride];
+        for (int y = size - 1; y >= 0; y--)
+        {
+            Array.Clear(andRow);
+            byte[] srcRow = rowsTopDown[y];
+            for (int x = 0; x < size; x++)
+            {
+                if (srcRow[(x * 4) + 3] == 0)
+                {
+                    andRow[x >> 3] |= (byte)(0x80 >> (x & 7));
+                }
+            }
+            writer.Write(andRow);
+        }
+
+        return ms.ToArray();
+    }
+
     private static void DrawHeadsetBase(Graphics g, HeadsetBaseVisual baseVisual, int sizePx)
     {
         var bandRect = new RectangleF(4.6f, 2.8f, 22.8f, 21.4f);

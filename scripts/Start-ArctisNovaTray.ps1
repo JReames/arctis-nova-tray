@@ -6,11 +6,17 @@ param(
     [switch]$Build,
     [switch]$Restart,
     [switch]$Silent,
-    [switch]$AllowHeadless
+    [switch]$AllowHeadless,
+    [switch]$EnableStartup,
+    [switch]$DisableStartup
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+if ($EnableStartup -and $DisableStartup) {
+    throw 'Cannot specify both -EnableStartup and -DisableStartup in the same call.'
+}
 
 if ($Restart) {
     $stopScript = Join-Path $PSScriptRoot 'Stop-ArctisNovaTray.ps1'
@@ -81,6 +87,22 @@ if ($Silent) {
 }
 if ($AllowHeadless) {
     $trayArgs.Add('--allow-headless')
+}
+
+if ($EnableStartup) {
+    $startupOut = (& $targetExe --enable-startup | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0) {
+        throw "ArctisNovaTray --enable-startup failed with exit code $LASTEXITCODE."
+    }
+    $startupInfo = $startupOut | ConvertFrom-Json
+    Write-Host "Enabled Windows startup registration: $($startupInfo.command)"
+}
+elseif ($DisableStartup) {
+    $null = (& $targetExe --disable-startup | Out-String)
+    if ($LASTEXITCODE -ne 0) {
+        throw "ArctisNovaTray --disable-startup failed with exit code $LASTEXITCODE."
+    }
+    Write-Host 'Disabled Windows startup registration.'
 }
 
 $startParams = @{
