@@ -2,22 +2,22 @@
 
 ![Arctis Nova 7 System Tray overview](docs/images/hero-banner.png)
 
-**[Download v1.2.0](https://github.com/JReames/arctis-nova-tray/releases/latest)** · **[Visual Guide](docs/VISUAL-GUIDE.md)** · **[MIT License](LICENSE)** · **Windows 11 (.NET 9, zero external packages)**
+**[Download v1.2.0](https://github.com/JReames/arctis-nova-tray/releases/latest)** · **[Website & Visual Overview](https://jreames.github.io/arctis-nova-tray/)** · **[Visual Guide](docs/VISUAL-GUIDE.md)** · **[MIT License](LICENSE)** · **Windows 11 (.NET 9, zero external packages)**
 
 ---
 
-## Why I Built This
+## Why I Built This (Works With or Without SteelSeries GG)
 
-If you use a SteelSeries Arctis Nova 7 with its USB-C wireless receiver, Windows has one annoying habit: as long as that receiver is plugged in, Windows claims your headphones are "connected" even when the headset is turned off on your desk. You only find out otherwise when audio vanishes into thin air, or when you realize the next morning that you forgot to power the headset off.
+If you use a SteelSeries Arctis Nova 7 with its USB-C wireless receiver on Windows 11, Windows has one annoying habit: as long as that receiver stays plugged in, Windows claims your headphones are "connected" even when the headset is turned off on your desk. You only find out otherwise when audio vanishes into thin air, or when you realize the next morning that you forgot to power the headset off.
 
-On top of that, there is no native taskbar indicator showing whether your headset is simultaneously paired to your phone over Bluetooth, or how much battery you have left, without opening the full SteelSeries GG window.
+On top of that, Windows gives you no native taskbar indicator showing how much battery percentage you have left, or whether your headset is simultaneously paired to your phone over Bluetooth, without installing and opening the full SteelSeries GG suite.
 
-**Arctis Nova 7 System Tray** puts a tiny, crisp indicator right next to your Windows 11 clock:
-- Shows whether your headset is **actually powered on** or just sitting off while the USB receiver stays plugged in, with adaptive dark and light taskbar contrast.
+**Arctis Nova 7 System Tray** puts a tiny, crisp status indicator right next to your Windows 11 clock:
+- **Works with or without SteelSeries GG**: Talks directly to the USB-C wireless receiver through the built-in Windows `HidUsb` (`input.inf`) driver on clean PCs without GG installed, and shares the receiver peacefully alongside SteelSeries GG and Sonar when GG is running.
+- Shows whether your headset is **actually powered on** over 2.4 GHz wireless or sitting off while the USB-C receiver stays plugged in, with adaptive dark and light taskbar contrast.
 - Shows **Bluetooth status** in the corner of the icon, including when your headset is connected to your **phone** at the same time as your PC.
 - Shows **live battery percentage, charging state, and hardware mic-mute status** on hover or with a single left-click.
-- Includes an **opt-in Start with Windows setting** right inside the Status Card and right-click tray menu (starts quietly with `--silent` when enabled).
-- Runs alongside **SteelSeries GG and Sonar** without locking audio or USB devices, and writes nothing to `%APPDATA%` or the registry unless you turn on `Start with Windows` (which manages `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\ArctisNovaTray`).
+- Includes an **opt-in Start with Windows setting** right inside the Status Card and right-click tray menu (starts quietly with `--silent` when enabled), and writes nothing to `%APPDATA%` or the registry unless you turn `Start with Windows` on (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run\ArctisNovaTray`).
 
 ---
 
@@ -29,11 +29,11 @@ On top of that, there is no native taskbar indicator showing whether your headse
 2. **Launch it**: Double-click **`ArctisNovaTray.exe`** (or run `.\Start-ArctisNovaTray.ps1`). The light-mode Status Card pops open in the bottom-right corner right after the first hardware check so you know it is running.
 3. **Pin the icon once**: Click the **`^`** hidden-icons arrow near your Windows 11 clock and drag the headset icon onto your taskbar so it stays visible all day.
 
-Left-click the tray icon anytime to open the Status Card (`Tab`, `F5`, and `Esc` work from the keyboard) and toggle **Start with Windows** if you want it to launch automatically when you sign in. Hover for a quick text summary (`Nova 7: PC 2.4GHz | BT Connected | 86%`), or right-click to check status, refresh, toggle startup, or exit.
+Left-click the tray icon anytime to open the Status Card (`Tab`, `F5`, and `Esc` work from the keyboard) and toggle **Start with Windows** if you want it to launch automatically when you sign in. Hover for a quick text summary (`Nova 7: PC 2.4 GHz | BT Connected | 86%`), or right-click to check status, refresh, toggle startup, or exit.
 
 ---
 
-## At-a-Glance Visual Guide
+## At-a-Glance Windows 11 Taskbar Visual Guide
 
 Two visual layers tell the whole story on both dark and light Windows 11 taskbars: the **headset color** shows your PC connection, and the **bottom-right badge** shows Bluetooth.
 
@@ -47,7 +47,34 @@ Two visual layers tell the whole story on both dark and light Windows 11 taskbar
 | ![Headset Off, Receiver Plugged In](docs/images/icons/dongle-only-headset-off.png) | **Headset Off, Receiver Plugged In** | USB-C receiver is plugged into your PC, **but the headset is powered off or asleep**. |
 | ![Disconnected](docs/images/icons/disconnected.png) | **Disconnected** | USB-C receiver is unplugged and the headset is not connected to this PC over Bluetooth. |
 
-Want the full tour of the popup Status Card, taskbar pinning tips, and everyday scenarios? Read the **[Visual Guide](docs/VISUAL-GUIDE.md)**.
+Want the full tour of the popup Status Card, taskbar pinning tips, and everyday scenarios? Visit the **[Website & Visual Overview](https://jreames.github.io/arctis-nova-tray/)** or read the **[Visual Guide](docs/VISUAL-GUIDE.md)**.
+
+---
+
+## Supported SteelSeries Arctis Nova 7 Models
+
+Supports all **15 wireless USB-C receiver PIDs** across the SteelSeries Arctis Nova 7 lineup (`VID_1038`), plus direct Windows Bluetooth connections when used without the USB-C receiver:
+
+| Firmware Group | Supported Headset Models & USB PIDs | Reported Status |
+| :--- | :--- | :--- |
+| **Gen 2 & 2026 Refresh** | **Arctis Nova 7** (`0x22A1`), **Nova 7 Gen 2** (`0x227E`), **Nova 7P Gen 2** (`0x22A7`, `0x2298`), **Nova 7X Gen 2** (`0x2258`, `0x229E`, `0x22AD`), **Nova 7X** (`0x22A5`), **Diablo IV Edition** (`0x22A9`) | 2.4 GHz awake/off, 0-100% battery, charging, phone or PC Bluetooth state, and hardware mic mute |
+| **Original Gen 1** | **Arctis Nova 7** (`0x2202`), **Nova 7P** (`0x220A`), **Nova 7X** (`0x2206`, `0x22A4`), **Diablo IV Edition** (`0x223A`), **World of Warcraft Edition** (`0x227A`) | 2.4 GHz awake/off, 0-100% battery (25% steps), charging, and PC Bluetooth fallback |
+
+---
+
+## Common Questions
+
+**Does this work without SteelSeries GG installed or running?**
+Yes. It queries the SteelSeries USB-C wireless receiver firmware directly over the built-in Windows `HidUsb` (`input.inf`) driver using shared Win32 HID handles (`FILE_SHARE_READ | FILE_SHARE_WRITE`). You do not need SteelSeries GG, Engine, or Sonar installed, and if you do run GG and Sonar, both apps work side by side without locking USB or audio devices.
+
+**How do I tell if my Arctis Nova 7 is turned off when the USB-C receiver stays plugged in?**
+When the headset powers off or goes to sleep, the receiver's `0xB0` status report flips its link byte from `0x03` to `0x02`. The tray icon changes immediately from solid green to a **hollow amber headset**, the tooltip updates to `Nova 7: Off or Asleep (Receiver In)`, and the Status Card hides stale cached battery numbers behind `Turn headset on to read`.
+
+**How do I see battery percentage and phone Bluetooth status on the Windows 11 taskbar?**
+Hover over the taskbar icon for an instant summary (`Nova 7: PC 2.4 GHz | BT Connected | 86%`), or left-click to open the Status Card with a color-coded battery bar. On Gen 2 and 2026 refresh hardware, the USB-C receiver reports the headset's Bluetooth radio directly, so the blue corner badge lights up even when your headset is connected to your phone.
+
+**Can it start automatically when I sign in to Windows?**
+Yes. Flip on **Start with Windows** inside the left-click Status Card (or in the right-click tray menu). That registers `ArctisNovaTray.exe --silent` under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\ArctisNovaTray` so it starts quietly in your tray at login. Turning the switch off removes that entry cleanly.
 
 ---
 

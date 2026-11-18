@@ -11,7 +11,7 @@
   - Dark- and light-taskbar adaptive DPI-aware GDI+ icon rendering, multi-resolution `.ico` generation, and `HICON` lifecycle: `src/arctis-nova-tray/rendering/`
   - Opt-in Windows login startup registration (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`): `src/arctis-nova-tray/services/StartupRegistrationService.cs`
   - WCAG AA/AAA light-mode status flyout card (`436x444` logical) and tray context menu: `src/arctis-nova-tray/ui/`
-  - Human-facing usage, visual cheat sheet, and CLI documentation: `README.md` and `docs/VISUAL-GUIDE.md`
+  - Human-facing usage, GitHub Pages landing site, visual cheat sheet, and CLI documentation: `README.md`, `docs/index.html`, and `docs/VISUAL-GUIDE.md`
 
 ## 3. Behavior-Changing Local Rules
 1. **Zero External Package Downloads**: Both `.csproj` files must contain zero `<PackageReference>` entries and build completely offline against standard `.NET 9` Windows Desktop SDK targeting packs (`net9.0-windows`). Never add third-party NuGet package dependencies without explicit approval.
@@ -61,7 +61,8 @@ Run from the repository root:
 
 ## 5. Routing and Project Map
 - `ArctisNovaTray.sln`: Solution building both the WinForms tray executable and the zero-NuGet test runner.
-- `README.md`: Overview, quick-start steps, visual cheat sheet, PowerShell helpers, and technical reference.
+- `README.md`: Overview, quick-start steps, visual cheat sheet, supported models, common questions, PowerShell helpers, and technical reference.
+- `docs/index.html`, `docs/.nojekyll`, `docs/sitemap.xml`, `docs/robots.txt`: Self-contained WCAG AAA Light Mode GitHub Pages landing site (`https://jreames.github.io/arctis-nova-tray/`) with Schema.org `SoftwareApplication` JSON-LD and zero external CDNs or tracking scripts.
 - `docs/VISUAL-GUIDE.md` & `docs/images/`: Annotated Status Card tour, taskbar pinning guide, everyday scenarios, and generated high-DPI diagrams/icons.
 - `LICENSE`: MIT license.
 - `scripts/Start-ArctisNovaTray.ps1`: Detached launcher supporting both packaged release layouts and source checkouts (`-Restart`, `-Silent`, `-AllowHeadless`, `-EnableStartup`, `-DisableStartup`, `-Build`), bringing the light-mode Status Card to the front when already running.
