@@ -1,0 +1,1133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Arctis Nova 7 System Tray for Windows 11: Battery, 2.4 GHz Power &amp; Bluetooth Indicator</title>
+  <meta name="description" content="Windows 11 taskbar battery percentage, 2.4 GHz awake-vs-off status, and phone/PC Bluetooth indicator for SteelSeries Arctis Nova 7 without SteelSeries GG.">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#F8FAFC">
+  <link rel="canonical" href="https://jreames.github.io/arctis-nova-tray/">
+  <link rel="icon" href="images/icons/pc-connected-bt-connected.png" type="image/png">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Arctis Nova 7 System Tray">
+  <meta property="og:title" content="Arctis Nova 7 System Tray for Windows 11: Battery, 2.4 GHz Power &amp; Bluetooth Indicator">
+  <meta property="og:description" content="Windows 11 taskbar battery percentage, 2.4 GHz awake-vs-off status, and phone/PC Bluetooth indicator for SteelSeries Arctis Nova 7 without SteelSeries GG.">
+  <meta property="og:url" content="https://jreames.github.io/arctis-nova-tray/">
+  <meta property="og:image" content="https://jreames.github.io/arctis-nova-tray/images/hero-banner.png">
+  <meta property="og:image:width" content="1280">
+  <meta property="og:image:height" content="650">
+  <meta property="og:image:alt" content="Arctis Nova 7 System Tray icon on the Windows 11 taskbar beside the light-mode Status Card showing 2.4 GHz wireless, Bluetooth, and 86% battery">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Arctis Nova 7 System Tray for Windows 11: Battery, 2.4 GHz Power &amp; Bluetooth Indicator">
+  <meta name="twitter:description" content="Windows 11 taskbar battery percentage, 2.4 GHz awake-vs-off status, and phone/PC Bluetooth indicator for SteelSeries Arctis Nova 7 without SteelSeries GG.">
+  <meta name="twitter:image" content="https://jreames.github.io/arctis-nova-tray/images/hero-banner.png">
+  <meta name="twitter:image:alt" content="Arctis Nova 7 System Tray icon on the Windows 11 taskbar beside the light-mode Status Card">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Arctis Nova 7 System Tray",
+    "description": "Lightweight Windows 11 system tray indicator showing real-time battery percentage, 2.4 GHz wireless power state, hardware mic-mute status, and phone or PC Bluetooth connection state for SteelSeries Arctis Nova 7 headsets, working with or without SteelSeries GG.",
+    "url": "https://jreames.github.io/arctis-nova-tray/",
+    "image": "https://jreames.github.io/arctis-nova-tray/images/hero-banner.png",
+    "operatingSystem": "Windows 11",
+    "applicationCategory": "UtilitiesApplication",
+    "softwareVersion": "1.2.0",
+    "license": "https://opensource.org/licenses/MIT",
+    "codeRepository": "https://github.com/JReames/arctis-nova-tray",
+    "downloadUrl": "https://github.com/JReames/arctis-nova-tray/releases/latest",
+    "author": {
+      "@type": "Person",
+      "name": "JReames",
+      "url": "https://github.com/JReames"
+    },
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    }
+  }
+  </script>
+
+  <style>
+    :root {
+      --bg-page: #F8FAFC;
+      --bg-surface: #FFFFFF;
+      --bg-subtle: #F1F5F9;
+      --bg-taskbar: #18181B;
+      --ink-primary: #0F172A;
+      --ink-secondary: #334155;
+      --ink-link: #1E3A8A;
+      --border-strong: #64748B;
+      --border-row: #7C8EA6;
+      --border-control: #475569;
+      --btn-primary-bg: #1E40AF;
+      --btn-primary-hover: #1E3A8A;
+      --btn-primary-border: #1D4ED8;
+      --pill-blue-bg: #EFF6FF;
+      --pill-blue-ink: #1E3A8A;
+      --pill-blue-border: #1D4ED8;
+      --pill-green-bg: #DCFCE7;
+      --pill-green-ink: #14532D;
+      --pill-green-border: #15803D;
+      --pill-amber-bg: #FEF3C7;
+      --pill-amber-ink: #78350F;
+      --pill-amber-border: #B45309;
+      --pill-red-bg: #FEE2E2;
+      --pill-red-ink: #7F1D1D;
+      --pill-red-border: #B91C1C;
+      --shadow-card: 0 8px 24px rgba(15, 23, 42, 0.06);
+      --radius-lg: 14px;
+      --radius-md: 10px;
+      --radius-sm: 8px;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+      margin: 0;
+      background-color: var(--bg-page);
+      color: var(--ink-primary);
+      font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 1rem;
+      line-height: 1.6;
+      overflow-x: clip;
+    }
+
+    img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    a {
+      color: var(--ink-link);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      text-decoration-thickness: 1.5px;
+    }
+
+    a:hover {
+      color: var(--ink-primary);
+    }
+
+    :focus-visible {
+      outline: 2.5px solid var(--ink-primary);
+      outline-offset: 3px;
+      box-shadow: 0 0 0 2px var(--bg-surface);
+      border-radius: 6px;
+    }
+
+    .skip-link {
+      position: absolute;
+      left: 1rem;
+      top: -100px;
+      z-index: 100;
+      padding: 0.65rem 1rem;
+      background-color: var(--bg-surface);
+      color: var(--ink-primary);
+      border: 2px solid var(--ink-primary);
+      border-radius: var(--radius-sm);
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .skip-link:focus {
+      top: 0.75rem;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1120px;
+      margin-inline: auto;
+      padding-inline: clamp(1rem, 4vw, 2rem);
+    }
+
+    .site-header {
+      background-color: var(--bg-surface);
+      border-bottom: 1.5px solid var(--border-strong);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+
+    .header-inner {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem 1.25rem;
+      padding-block: 0.75rem;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.65rem;
+      color: var(--ink-primary);
+      font-weight: 700;
+      font-size: 1.05rem;
+      text-decoration: none;
+      min-height: 44px;
+    }
+
+    .brand:hover {
+      text-decoration: underline;
+    }
+
+    .brand-icon-wrap {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-sm);
+      background-color: var(--bg-taskbar);
+      border: 1.5px solid var(--border-strong);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .brand-icon-wrap img {
+      width: 26px;
+      height: 26px;
+    }
+
+    .nav-links {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.35rem 0.9rem;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .nav-links a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 40px;
+      padding-inline: 0.35rem;
+      color: var(--ink-primary);
+      font-size: 0.95rem;
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .nav-links a:hover {
+      color: var(--ink-link);
+      text-decoration: underline;
+    }
+
+    main {
+      padding-bottom: 3.5rem;
+    }
+
+    .hero {
+      padding-top: clamp(1.75rem, 4vw, 3rem);
+      padding-bottom: 2.25rem;
+    }
+
+    .eyebrow {
+      display: inline-block;
+      padding: 0.3rem 0.8rem;
+      border-radius: 999px;
+      background-color: var(--pill-blue-bg);
+      color: var(--pill-blue-ink);
+      border: 1.5px solid var(--pill-blue-border);
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      margin-bottom: 0.9rem;
+    }
+
+    h1 {
+      margin: 0 0 0.85rem;
+      font-size: clamp(1.85rem, 4.2vw, 2.75rem);
+      line-height: 1.18;
+      letter-spacing: -0.02em;
+      color: var(--ink-primary);
+    }
+
+    .hero-lead {
+      margin: 0 0 1.4rem;
+      max-width: 68ch;
+      font-size: clamp(1.05rem, 2vw, 1.2rem);
+      color: var(--ink-secondary);
+    }
+
+    .cta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.85rem;
+      margin-bottom: 1.15rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      min-height: 46px;
+      padding: 0.65rem 1.25rem;
+      border-radius: var(--radius-md);
+      font-size: 1rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: background-color 120ms ease, border-color 120ms ease;
+    }
+
+    .btn-primary {
+      background-color: var(--btn-primary-bg);
+      color: #FFFFFF;
+      border: 1.5px solid var(--btn-primary-border);
+    }
+
+    .btn-primary:hover {
+      background-color: var(--btn-primary-hover);
+      color: #FFFFFF;
+      text-decoration: underline;
+    }
+
+    .btn-secondary {
+      background-color: var(--bg-surface);
+      color: var(--ink-primary);
+      border: 1.5px solid var(--border-control);
+    }
+
+    .btn-secondary:hover {
+      background-color: var(--pill-blue-bg);
+      color: var(--ink-link);
+      border-color: var(--pill-blue-border);
+    }
+
+    .meta-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+      list-style: none;
+      margin: 0 0 1.75rem;
+      padding: 0;
+    }
+
+    .meta-pills li {
+      padding: 0.25rem 0.7rem;
+      background-color: var(--bg-surface);
+      color: var(--ink-secondary);
+      border: 1.5px solid var(--border-row);
+      border-radius: 999px;
+      font-size: 0.86rem;
+      font-weight: 600;
+    }
+
+    .figure-frame {
+      margin: 0;
+      background-color: var(--bg-surface);
+      border: 1.5px solid var(--border-strong);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+    }
+
+    .figure-frame figcaption {
+      padding: 0.75rem 1.1rem;
+      background-color: var(--bg-subtle);
+      border-top: 1.5px solid var(--border-row);
+      color: var(--ink-secondary);
+      font-size: 0.9rem;
+    }
+
+    section, #top {
+      scroll-margin-top: 5.5rem;
+    }
+
+    section {
+      padding-block: 2.25rem;
+      border-top: 1.5px solid var(--border-row);
+    }
+
+    h2 {
+      margin: 0 0 0.6rem;
+      font-size: clamp(1.45rem, 3vw, 1.9rem);
+      line-height: 1.25;
+      letter-spacing: -0.015em;
+      color: var(--ink-primary);
+    }
+
+    h3 {
+      margin: 0 0 0.4rem;
+      font-size: 1.12rem;
+      line-height: 1.35;
+      color: var(--ink-primary);
+    }
+
+    .section-intro {
+      margin: 0 0 1.4rem;
+      max-width: 72ch;
+      color: var(--ink-secondary);
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 290px), 1fr));
+      gap: 1rem;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+      gap: 1rem;
+    }
+
+    .card {
+      background-color: var(--bg-surface);
+      border: 1.5px solid var(--border-strong);
+      border-radius: var(--radius-md);
+      padding: 1.15rem 1.25rem;
+      box-shadow: var(--shadow-card);
+    }
+
+    .card p {
+      margin: 0;
+      color: var(--ink-secondary);
+    }
+
+    .step-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      background-color: var(--pill-blue-bg);
+      color: var(--pill-blue-ink);
+      border: 1.5px solid var(--pill-blue-border);
+      font-weight: 700;
+      font-size: 0.9rem;
+      margin-bottom: 0.65rem;
+    }
+
+    code {
+      font-family: Consolas, "Cascadia Mono", ui-monospace, monospace;
+      font-size: 0.9em;
+      background-color: var(--bg-subtle);
+      color: var(--ink-primary);
+      padding: 0.12rem 0.38rem;
+      border-radius: 5px;
+      border: 1px solid var(--border-row);
+      overflow-wrap: anywhere;
+    }
+
+    pre {
+      margin: 1rem 0 0;
+      padding: 1rem 1.15rem;
+      background-color: var(--bg-subtle);
+      color: var(--ink-primary);
+      border: 1.5px solid var(--border-strong);
+      border-radius: var(--radius-md);
+      overflow-x: auto;
+      font-family: Consolas, "Cascadia Mono", ui-monospace, monospace;
+      font-size: 0.88rem;
+      line-height: 1.55;
+    }
+
+    pre code {
+      background: none;
+      border: 0;
+      padding: 0;
+      font-size: inherit;
+      overflow-wrap: normal;
+      white-space: pre;
+    }
+
+    .state-list {
+      display: grid;
+      gap: 0.85rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .state-row {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 1rem;
+      align-items: center;
+      background-color: var(--bg-surface);
+      border: 1.5px solid var(--border-strong);
+      border-radius: var(--radius-md);
+      padding: 0.95rem 1.15rem;
+    }
+
+    .icon-tile {
+      width: 64px;
+      height: 64px;
+      border-radius: var(--radius-md);
+      background-color: var(--bg-taskbar);
+      border: 1.5px solid var(--border-strong);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .icon-tile img {
+      width: 48px;
+      height: 48px;
+    }
+
+    .state-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.45rem 0.75rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .state-row p {
+      margin: 0;
+      color: var(--ink-secondary);
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 0.18rem 0.65rem;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      border: 1.5px solid transparent;
+    }
+
+    .pill-blue {
+      background-color: var(--pill-blue-bg);
+      color: var(--pill-blue-ink);
+      border-color: var(--pill-blue-border);
+    }
+
+    .pill-green {
+      background-color: var(--pill-green-bg);
+      color: var(--pill-green-ink);
+      border-color: var(--pill-green-border);
+    }
+
+    .pill-amber {
+      background-color: var(--pill-amber-bg);
+      color: var(--pill-amber-ink);
+      border-color: var(--pill-amber-border);
+    }
+
+    .pill-red {
+      background-color: var(--pill-red-bg);
+      color: var(--pill-red-ink);
+      border-color: var(--pill-red-border);
+    }
+
+    .pill-slate {
+      background-color: var(--bg-subtle);
+      color: var(--ink-primary);
+      border-color: var(--border-control);
+    }
+
+    .callout-list {
+      list-style: none;
+      padding: 0;
+      margin: 1.35rem 0 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+      gap: 0.85rem;
+    }
+
+    .callout-item {
+      background-color: var(--bg-surface);
+      border: 1.5px solid var(--border-row);
+      border-radius: var(--radius-md);
+      padding: 0.95rem 1.1rem;
+    }
+
+    .callout-item strong {
+      display: block;
+      color: var(--ink-primary);
+      margin-bottom: 0.2rem;
+    }
+
+    .callout-item span {
+      color: var(--ink-secondary);
+      font-size: 0.95rem;
+    }
+
+    .table-scroll {
+      background-color: var(--bg-surface);
+      border: 1.5px solid var(--border-strong);
+      border-radius: var(--radius-md);
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      box-shadow: var(--shadow-card);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 540px;
+      text-align: left;
+    }
+
+    th, td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border-row);
+      vertical-align: middle;
+    }
+
+    thead th {
+      background-color: var(--bg-subtle);
+      color: var(--ink-primary);
+      font-size: 0.88rem;
+      font-weight: 700;
+      border-bottom: 1.5px solid var(--border-strong);
+    }
+
+    tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
+    tbody td {
+      color: var(--ink-secondary);
+      font-size: 0.95rem;
+    }
+
+    tbody td:first-child {
+      color: var(--ink-primary);
+      font-weight: 600;
+    }
+
+    .faq-stack {
+      display: grid;
+      gap: 0.85rem;
+    }
+
+    details.faq-item {
+      background-color: var(--bg-surface);
+      border: 1.5px solid var(--border-strong);
+      border-radius: var(--radius-md);
+      padding: 0.2rem 1.15rem;
+      box-shadow: var(--shadow-card);
+    }
+
+    details.faq-item summary {
+      cursor: pointer;
+      padding-block: 0.85rem;
+      min-height: 44px;
+      font-weight: 700;
+      font-size: 1.05rem;
+      color: var(--ink-primary);
+      list-style-position: outside;
+      margin-left: 1rem;
+    }
+
+    details.faq-item .faq-body {
+      padding: 0 0 1rem;
+      border-top: 1px solid var(--border-row);
+      padding-top: 0.85rem;
+      color: var(--ink-secondary);
+    }
+
+    details.faq-item .faq-body p {
+      margin: 0 0 0.65rem;
+    }
+
+    details.faq-item .faq-body p:last-child {
+      margin-bottom: 0;
+    }
+
+    .site-footer {
+      background-color: var(--bg-surface);
+      border-top: 1.5px solid var(--border-strong);
+      padding-block: 2rem;
+      color: var(--ink-secondary);
+      font-size: 0.92rem;
+    }
+
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 1.25rem;
+      list-style: none;
+      margin: 0 0 0.75rem;
+      padding: 0;
+    }
+
+    .footer-note {
+      margin: 0;
+    }
+
+    @media (max-width: 640px) {
+      .site-header {
+        position: static;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .cta-row .btn {
+        width: 100%;
+      }
+
+      .state-row {
+        grid-template-columns: 1fr;
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="#top">
+        <span class="brand-icon-wrap" aria-hidden="true">
+          <img src="images/icons/pc-connected-bt-connected.png" width="48" height="48" alt="">
+        </span>
+        <span>Arctis Nova 7 System Tray</span>
+      </a>
+      <nav aria-label="Page sections">
+        <ul class="nav-links">
+          <li><a href="#quick-start">Quick Start</a></li>
+          <li><a href="#visual-guide">Icon Guide</a></li>
+          <li><a href="#status-card">Status Card</a></li>
+          <li><a href="#supported-models">Supported Models</a></li>
+          <li><a href="#faq">Common Questions</a></li>
+          <li><a href="https://github.com/JReames/arctis-nova-tray">GitHub</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main-content" class="container">
+    <div id="top" class="hero">
+      <span class="eyebrow">Windows 11 Utility · Works With or Without SteelSeries GG</span>
+      <h1>Arctis Nova 7 System Tray for Windows 11</h1>
+      <p class="hero-lead">
+        See at a glance if your SteelSeries Arctis Nova 7 headset is actually powered on, how much battery percentage you have left, and whether Bluetooth is connected to your phone or PC, right next to your Windows 11 clock.
+      </p>
+
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://github.com/JReames/arctis-nova-tray/releases/latest">
+          Download Latest Release (v1.2.0)
+        </a>
+        <a class="btn btn-secondary" href="https://github.com/JReames/arctis-nova-tray">
+          View Source on GitHub
+        </a>
+      </div>
+
+      <ul class="meta-pills" aria-label="Highlights">
+        <li>2.4 GHz Awake vs. Off Detection</li>
+        <li>Phone &amp; PC Bluetooth Badge</li>
+        <li>Live Battery % &amp; Mic-Mute Pill</li>
+        <li>No SteelSeries GG Required</li>
+        <li>Zero External NuGet Packages</li>
+        <li>MIT License</li>
+      </ul>
+
+      <figure class="figure-frame">
+        <img
+          src="images/hero-banner.png"
+          width="1280"
+          height="650"
+          fetchpriority="high"
+          alt="Windows 11 dark taskbar showing the green Arctis Nova 7 headset icon with a blue Bluetooth corner badge alongside the light-mode Status Card displaying Connected 2.4 GHz, USB-C Receiver Active, Bluetooth Connected, 86% battery, and Start with Windows">
+        <figcaption>
+          Pinned next to the Windows 11 clock on the left, with the left-click light-mode Status Card (v1.2.0) on the right.
+        </figcaption>
+      </figure>
+    </div>
+
+    <section id="why-it-helps" aria-labelledby="heading-why">
+      <h2 id="heading-why">Built for the Quirks Windows 11 Misses</h2>
+      <p class="section-intro">
+        As long as the SteelSeries USB-C wireless receiver stays plugged into your PC, Windows 11 claims your Arctis Nova 7 headphones are connected even when the headset is turned off on your desk. Audio disappears into a powered-off headset, or you realize the next morning that you forgot to turn it off overnight.
+      </p>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3>Works Without SteelSeries GG (and Peaceful Alongside It)</h3>
+          <p>
+            Queries the USB-C wireless receiver directly through the built-in Windows <code>HidUsb</code> (<code>input.inf</code>) driver using shared Win32 HID handles. You can run it on a clean PC without SteelSeries GG installed, or run it right beside SteelSeries GG and Sonar with zero device locks.
+          </p>
+        </div>
+        <div class="card">
+          <h3>Real Hardware State, Zero Background Clutter</h3>
+          <p>
+            Reads live 2.4 GHz power state, battery percentage, charging flag, hardware boom-mic mute state, and simultaneous phone Bluetooth status in under a millisecond every 2.5 seconds, writing nothing to <code>%APPDATA%</code>.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section id="quick-start" aria-labelledby="heading-quickstart">
+      <h2 id="heading-quickstart">Get Running in 30 Seconds</h2>
+      <p class="section-intro">
+        Requires Windows 11 and the <a href="https://dotnet.microsoft.com/download/dotnet/9.0">.NET 9 Windows Desktop Runtime</a>. No installer wizard or admin privileges needed.
+      </p>
+
+      <div class="grid-3">
+        <div class="card">
+          <span class="step-badge" aria-hidden="true">1</span>
+          <h3>Download &amp; Extract</h3>
+          <p>
+            Grab <code>ArctisNovaTray-v1.2.0-win-x64.zip</code> from the <a href="https://github.com/JReames/arctis-nova-tray/releases/latest">GitHub Releases page</a> and unzip it into any folder where you keep utilities.
+          </p>
+        </div>
+        <div class="card">
+          <span class="step-badge" aria-hidden="true">2</span>
+          <h3>Launch the Tray App</h3>
+          <p>
+            Double-click <code>ArctisNovaTray.exe</code> (or run <code>.\Start-ArctisNovaTray.ps1</code>). The Status Card opens above your clock right after the first hardware check so you know it is active.
+          </p>
+        </div>
+        <div class="card">
+          <span class="step-badge" aria-hidden="true">3</span>
+          <h3>Pin to Taskbar &amp; Optional Auto-Start</h3>
+          <p>
+            Click the <code>^</code> hidden-icons arrow near your Windows 11 clock once and drag the headset icon onto your taskbar. Toggle <strong>Start with Windows</strong> in the card if you want quiet sign-in launch.
+          </p>
+        </div>
+      </div>
+
+      <pre><code># Launch the tray app (or bring the Status Card to the front if already running)
+.\Start-ArctisNovaTray.ps1
+
+# Query live headset status in PowerShell as an object or raw JSON
+.\scripts\Get-ArctisNovaStatus.ps1
+.\scripts\Get-ArctisNovaStatus.ps1 -RawJson
+
+# Stop the running tray app cleanly
+.\scripts\Stop-ArctisNovaTray.ps1</code></pre>
+    </section>
+
+    <section id="visual-guide" aria-labelledby="heading-visual-guide">
+      <h2 id="heading-visual-guide">5-State Taskbar Icon Visual Guide</h2>
+      <p class="section-intro">
+        Two visual layers tell the whole story on both dark (<code>#18181B</code>) and light (<code>#F3F4F6</code>) Windows 11 taskbars: the <strong>headset color</strong> shows your PC audio link, and the <strong>bottom-right badge</strong> shows the headset's Bluetooth radio.
+      </p>
+
+      <div class="state-list">
+        <div class="state-row">
+          <div class="icon-tile">
+            <img src="images/icons/pc-connected-bt-connected.png" width="48" height="48" loading="lazy" alt="Green headset icon with solid blue Bluetooth corner badge">
+          </div>
+          <div>
+            <div class="state-header">
+              <h3>PC + Bluetooth Connected</h3>
+              <span class="pill pill-blue">2.4 GHz + BT Active</span>
+            </div>
+            <p>Headset is powered on over 2.4 GHz wireless (or PC Bluetooth) and actively connected to your phone, tablet, or PC over Bluetooth.</p>
+          </div>
+        </div>
+
+        <div class="state-row">
+          <div class="icon-tile">
+            <img src="images/icons/pc-connected-bt-on.png" width="48" height="48" loading="lazy" alt="Green headset icon with hollow blue Bluetooth ring badge">
+          </div>
+          <div>
+            <div class="state-header">
+              <h3>PC Connected, Bluetooth Waiting</h3>
+              <span class="pill pill-blue">2.4 GHz + BT Waiting</span>
+            </div>
+            <p>Headset is awake on 2.4 GHz wireless. Its Bluetooth radio is switched on inside the headset and waiting to connect to a paired device.</p>
+          </div>
+        </div>
+
+        <div class="state-row">
+          <div class="icon-tile">
+            <img src="images/icons/pc-connected-bt-off.png" width="48" height="48" loading="lazy" alt="Solid green headset icon with no corner badge">
+          </div>
+          <div>
+            <div class="state-header">
+              <h3>PC Connected Only</h3>
+              <span class="pill pill-green">2.4 GHz Only</span>
+            </div>
+            <p>Headset is awake on 2.4 GHz wireless, and Bluetooth on the headset is turned off.</p>
+          </div>
+        </div>
+
+        <div class="state-row">
+          <div class="icon-tile">
+            <img src="images/icons/dongle-only-headset-off.png" width="48" height="48" loading="lazy" alt="Hollow amber headset outline icon">
+          </div>
+          <div>
+            <div class="state-header">
+              <h3>Headset Off, Receiver Plugged In</h3>
+              <span class="pill pill-amber">Off or Asleep</span>
+            </div>
+            <p>The SteelSeries USB-C receiver is plugged into your PC, so Windows still lists an audio output, <strong>but the headset itself is powered off, asleep, or out of range</strong>.</p>
+          </div>
+        </div>
+
+        <div class="state-row">
+          <div class="icon-tile">
+            <img src="images/icons/disconnected.png" width="48" height="48" loading="lazy" alt="Slate gray headset icon with diagonal red slash">
+          </div>
+          <div>
+            <div class="state-header">
+              <h3>Disconnected</h3>
+              <span class="pill pill-red">Unplugged / Offline</span>
+            </div>
+            <p>The USB-C wireless receiver is unplugged and the headset is not connected to this PC over Windows Bluetooth.</p>
+          </div>
+        </div>
+      </div>
+
+      <figure class="figure-frame">
+        <img
+          src="images/visual-guide.png"
+          width="1200"
+          height="720"
+          loading="lazy"
+          alt="Cheat sheet comparing all five Arctis Nova 7 taskbar icon states side by side">
+        <figcaption>
+          Even at native 16x16 taskbar size, the hollow amber earcups and hollow Bluetooth ring keep transparent centers so they never blur into solid shapes.
+        </figcaption>
+      </figure>
+    </section>
+
+    <section id="status-card" aria-labelledby="heading-status-card">
+      <h2 id="heading-status-card">Popup Status Card Annotated Tour</h2>
+      <p class="section-intro">
+        Left-click the tray icon anytime to open the high-contrast Light Mode Status Card. Navigate with <code>Tab</code> / <code>Shift+Tab</code>, refresh on demand with <code>F5</code>, and dismiss with <code>Esc</code>, the <code>&times;</code> button, or a click outside.
+      </p>
+
+      <figure class="figure-frame">
+        <img
+          src="images/status-card-annotated.png"
+          width="1080"
+          height="690"
+          loading="lazy"
+          alt="Annotated diagram of the Arctis Nova 7 popup Status Card showing six labeled rows and a first-run Windows 11 taskbar pinning tip">
+        <figcaption>
+          Every row maps directly to live SteelSeries USB HID status bytes and native Windows Bluetooth PnP properties.
+        </figcaption>
+      </figure>
+
+      <ol class="callout-list">
+        <li class="callout-item">
+          <strong>1. Live Icon, Status Pill &amp; Close</strong>
+          <span>Mirrors your taskbar icon beside an instant pill (<code>PC CONNECTED</code>, <code>PC BLUETOOTH</code>, <code>HEADSET OFF</code>, or <code>DISCONNECTED</code>) and keyboard-accessible <code>&times;</code> button.</span>
+        </li>
+        <li class="callout-item">
+          <strong>2. Headset Link &amp; Mic-Mute Badge</strong>
+          <span>Confirms whether the wireless link is live or asleep, and displays an inline <code>MIC MUTED</code> badge when the boom mic is muted on Gen 2 / refresh firmware.</span>
+        </li>
+        <li class="callout-item">
+          <strong>3. USB-C Receiver Presence</strong>
+          <span>Shows whether the SteelSeries USB-C transmitter is physically plugged into your PC (<code>Plugged In · Active</code>, <code>Plugged In · Waiting</code>, or <code>Unplugged</code>).</span>
+        </li>
+        <li class="callout-item">
+          <strong>4. Phone or PC Bluetooth</strong>
+          <span>Reads the headset's Bluetooth radio directly from Gen 2 / 2026 refresh receivers, showing when your headset is paired to your phone while gaming on PC.</span>
+        </li>
+        <li class="callout-item">
+          <strong>5. Battery Gauge &amp; Honest Offline Track</strong>
+          <span>Shows green (35%+), amber (15-34%), red (&lt;15%), or blue charging bars when awake, and switches to <code>Turn headset on to read</code> when powered off instead of a fake cached 100%.</span>
+        </li>
+        <li class="callout-item">
+          <strong>6. Start with Windows, 12h Clock &amp; Refresh</strong>
+          <span>Includes an opt-in <strong>Start with Windows</strong> switch (launching quietly with <code>--silent</code>), a live-ticking 12-hour timestamp, and a tactile <code>Refresh</code> button.</span>
+        </li>
+      </ol>
+    </section>
+
+    <section id="supported-models" aria-labelledby="heading-models">
+      <h2 id="heading-models">Supported SteelSeries Arctis Nova 7 Models (15 USB-C PIDs)</h2>
+      <p class="section-intro">
+        Supports the full wireless SteelSeries Arctis Nova 7 family under USB Vendor ID <code>0x1038</code> (<code>UsagePage 0xFFC0</code>, <code>Usage 0x0001</code>): <strong>Arctis Nova 7</strong>, <strong>Nova 7P</strong>, <strong>Nova 7X</strong>, <strong>Nova 7 Gen 2</strong>, <strong>Nova 7P Gen 2</strong>, <strong>Nova 7X Gen 2</strong>, <strong>Diablo IV Edition</strong>, and <strong>World of Warcraft Edition</strong>, plus direct Windows Bluetooth connections when used without the USB-C receiver.
+      </p>
+
+      <div class="table-scroll" role="region" aria-labelledby="heading-models" tabindex="0">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Headset Model</th>
+              <th scope="col">USB VID:PID</th>
+              <th scope="col">Firmware Group</th>
+              <th scope="col">Reported Telemetry</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>SteelSeries Arctis Nova 7 (2026 Refresh)</td>
+              <td><code>1038:22A1</code> (<code>0x22A1</code>)</td>
+              <td><span class="pill pill-green">Gen 2 / Refresh</span></td>
+              <td>2.4 GHz awake/off, 0-100% battery, charging, headset Bluetooth (phone or PC), mic mute</td>
+            </tr>
+            <tr>
+              <td>SteelSeries Arctis Nova 7 Gen 2 (Wireless Gen 2)</td>
+              <td><code>1038:227E</code> (<code>0x227E</code>)</td>
+              <td><span class="pill pill-green">Gen 2 / Refresh</span></td>
+              <td>2.4 GHz awake/off, 0-100% battery, charging, headset Bluetooth (phone or PC), mic mute</td>
+            </tr>
+            <tr>
+              <td>SteelSeries Arctis Nova 7P Gen 2</td>
+              <td><code>1038:22A7</code> (<code>0x22A7</code>)</td>
+              <td><span class="pill pill-green">Gen 2 / Refresh</span></td>
+              <td>2.4 GHz awake/off, 0-100% battery, charging, headset Bluetooth (phone or PC), mic mute</td>
+            </tr>
+            <tr>
+              <td>SteelSeries Arctis Nova 7P Gen 2 (V2)</td>
+              <td><code>1038:2298</code> (<code>0x2298</code>)</td>
+              <td><span class="pill pill-green">Gen 2 / Refresh</span></td>
+              <td>2.4 GHz awake/off, 0-100% battery, charging, headset Bluetooth (phone or PC), mic mute</td>
+            </tr>
+            <tr>
+              <td>SteelSeries Arctis Nova 7X Gen 2</td>
+              <td><code>1038:2258</code> (<code>0x2258</code>)</td>
+              <td><span class="pill pill-green">Gen 2 / Refresh</span></td>
+              <td>2.4 GHz awake/off, 0-100% battery, charging, headset Bluetooth (phone or PC), mic mute</td>
+            </tr>
+            <tr>
+              <td>SteelSeries Arctis Nova 7X Gen 2 (Rev B)</td>
+              <td><code>1038:229E</code> (<code>0x229E</code>)</td>
+              <td><span class="pill pill-green">Gen 2 / Refresh</span></td>
+              <td>2.4 GHz awake/off, 0-100% battery, charging, headset Bluetooth (phone or PC), mic mute</td>
+            </tr>
+            <tr>
+              <td>SteelSeries Arctis Nova 7X Gen 2 (V2)</td>
+              <td><code>1038:22AD</code> (<code>0x22AD</code>)</td>
+              <td><span class="pill pill-green">Gen 2 / Refresh</span></td>
+              <td>2.4 GHz awake/off, 0-100% battery, charging, headset Bluetooth (phone or PC), mic mute</td>
+            </tr>
+            <tr>
+              <td>SteelSeries Arctis Nova 7X (2026 Refresh)</td>
+              <td><code>1038:22A5</code> (<code>0x22A5</code>)</td>
+              <td><span class="pill pill-green">Gen 2 / Refresh</span></td>
+              <td>2.4 GHz awake/off, 0-100% battery, charging, headset Bluetooth (phone or PC), mic mute</td>
+            </tr>
+            <tr>
+              <td>SteelSeries Arctis Nova 7 Diablo IV Edition (Refresh)</td>
+              <td><code>1038:22A9</code> (<code>0x22A9</code>)</td>
+              <td><span class="pill pill-green">Gen 2 / Refresh</span></td>
+              <td>2.4 GHz awake/off, 0-100% battery, charging, headset Bluetooth (phone or PC), mic mute</td>
+            </tr>
+            <tr>
+              <td>SteelSeries Arctis Nova 7 (Original)</td>
+              <td><code>1038:2202</code> (<code>0x2202</code>)</td>
+              <td><span class="pill pill-slate">Original Gen 1</span></td>
+              <td>2.4 GHz awake/off, 0-100% battery (25% steps), charging, PC Bluetooth fallback</td>
+            </tr>
+            <tr>
+              <td>SteelSeries Arctis Nova 7P (Original)</td>
+              <td><code>1038:220A</code> (<code>0x220A</code>)</td>
+              <td><span class="pill pill-slate">Original Gen 1</span></td>
+              <td>2.4 GHz awake/off, 0-100% battery (25% steps), charging, PC Bluetooth fallback</td>
+            </tr>
+            <tr>
+              <td>SteelSeries Arctis Nova 7X (Original)</td>
+              <td><code>1038:2206</code> (<code>0x2206</code>)</td>
+              <td><span class="pill pill-slate">Original Gen 1</span></td>
+              <td>2.4 GHz awake/off, 0-100% battery (25% steps), charging, PC Bluetooth fallback</td>
+            </tr>
+            <tr>
+              <td>SteelSeries Arctis Nova 7X (Original Rev B)</td>
+              <td><code>1038:22A4</code> (<code>0x22A4</code>)</td>
+              <td><span class="pill pill-slate">Original Gen 1</span></td>
+              <td>2.4 GHz awake/off, 0-100% battery (25% steps), charging, PC Bluetooth fallback</td>
+            </tr>
+            <tr>
+              <td>SteelSeries Arctis Nova 7 Diablo IV Edition</td>
+              <td><code>1038:223A</code> (<code>0x223A</code>)</td>
+              <td><span class="pill pill-slate">Original Gen 1</span></td>
+              <td>2.4 GHz awake/off, 0-100% battery (25% steps), charging, PC Bluetooth fallback</td>
+            </tr>
+            <tr>
+              <td>SteelSeries Arctis Nova 7 World of Warcraft Edition</td>
+              <td><code>1038:227A</code> (<code>0x227A</code>)</td>
+              <td><span class="pill pill-slate">Original Gen 1</span></td>
+              <td>2.4 GHz awake/off, 0-100% battery (25% steps), charging, PC Bluetooth fallback</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="faq" aria-labelledby="heading-faq">
+      <h2 id="heading-faq">Common Questions</h2>
+      <p class="section-intro">
+        Straight answers to common questions about SteelSeries GG compatibility, awake-vs-off detection, battery readouts, and Windows startup.
+      </p>
+
+      <div class="faq-stack">
+        <details class="faq-item" open>
+          <summary>Does Arctis Nova 7 System Tray work without SteelSeries GG installed or running?</summary>
+          <div class="faq-body">
+            <p>
+              <strong>Yes.</strong> The app communicates directly with the SteelSeries USB-C wireless receiver firmware over the standard Windows inbox HID driver (<code>HidUsb</code> / <code>input.inf</code>) and queries native Windows Bluetooth PnP properties via <code>cfgmgr32.dll</code>. You do not need SteelSeries GG, Engine, or Sonar installed at all.
+            </p>
+            <p>
+              If you do keep SteelSeries GG and Sonar running, both applications coexist peacefully: every HID handle is opened with shared access (<code>FILE_SHARE_READ | FILE_SHARE_WRITE</code>) and short non-blocking overlapped reads so audio endpoints and GG device controls are never locked out.
+            </p>
+          </div>
+        </details>
+
+        <details class="faq-item" open>
+          <summary>How do I tell if my SteelSeries Arctis Nova 7 is turned off when the USB-C receiver stays plugged in?</summary>
+          <div class="faq-body">
+            <p>
+              Because the USB-C wireless receiver stays powered by your PC's USB port, Windows keeps listing the Arctis Nova 7 audio endpoint as active even when the headset is turned off. Arctis Nova 7 System Tray sends the <code>0xB0</code> status request to the receiver and checks link byte <code>inBuf[2]</code>.
+            </p>
+            <p>
+              As soon as you power the headset off (or when it auto-sleeps), the taskbar icon changes from solid green to a <strong>hollow amber headset</strong>, the hover tooltip updates to <code>Nova 7: Off or Asleep (Receiver In)</code>, and the Status Card suppresses stale cached battery numbers in favor of <code>Turn headset on to read</code>.
+            </p>
+          </div>
+        </details>
+
+        <details class="faq-item" open>
+          <summary>How do I see Arctis Nova 7 battery percentage and phone Bluetooth status on the Windows 11 taskbar?</summary>
+          <div class="faq-body">
+            <p>
+              Once you drag the headset icon out of the Windows 11 <code>^</code> hidden-icons menu onto your taskbar, hovering shows a concise live summary such as <code>Nova 7: PC 2.4 GHz | BT Connected | 86%</code>, and left-clicking opens the Status Card with a color-coded battery gauge and charging indicator.
+            </p>
+            <p>
+              On Gen 2 and 2026 refresh receivers, the headset reports its own Bluetooth radio state through the USB-C receiver (<code>inBuf[7]</code>). That means the <strong>blue corner badge</strong> on your PC taskbar icon shows whether Bluetooth is off, waiting in standby (hollow blue ring), or actively connected to your phone (solid blue badge with Bluetooth rune).
+            </p>
+          </div>
+        </details>
+
+        <details class="faq-item" open>
+          <summary>Can it start automatically when I sign in to Windows?</summary>
+          <div class="faq-body">
+            <p>
+              <strong>Yes, and it is strictly opt-in.</strong> Left-click the tray icon and turn on the <strong>Start with Windows</strong> switch in the Status Card, check <strong>Start with Windows</strong> in the right-click tray menu, or run <code>.\scripts\Start-ArctisNovaTray.ps1 -EnableStartup</code>.
+            </p>
+            <p>
+              Enabling it registers <code>"...\ArctisNovaTray.exe" --silent</code> under your user account's <code>HKCU\Software\Microsoft\Windows\CurrentVersion\Run\ArctisNovaTray</code> key so the tray indicator starts quietly at login without popping open the Status Card. Turning the switch off deletes that single registry value cleanly.
+            </p>
+          </div>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <ul class="footer-links">
+        <li><a href="https://github.com/JReames/arctis-nova-tray/releases/latest">Download v1.2.0</a></li>
+        <li><a href="https://github.com/JReames/arctis-nova-tray">GitHub Repository</a></li>
+        <li><a href="https://github.com/JReames/arctis-nova-tray/blob/main/docs/VISUAL-GUIDE.md">Markdown Visual Guide</a></li>
+        <li><a href="https://github.com/JReames/arctis-nova-tray/blob/main/LICENSE">MIT License</a></li>
+        <li><a href="sitemap.xml">Sitemap</a></li>
+      </ul>
+      <p class="footer-note">
+        Open-source utility under the MIT License. SteelSeries and Arctis Nova are trademarks of SteelSeries ApS; this project is an independent community tool and is not affiliated with or endorsed by SteelSeries.
+      </p>
+    </div>
+  </footer>
+</body>
+</html>

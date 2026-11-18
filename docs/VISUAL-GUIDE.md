@@ -1,8 +1,8 @@
 # Arctis Nova 7 System Tray: Visual Guide
 
-[Back to README](../README.md)
+[Back to README](../README.md) · [Website & Visual Overview](https://jreames.github.io/arctis-nova-tray/)
 
-This guide walks through every icon state, what each row in the popup Status Card means, how to pin the icon to your Windows 11 taskbar, and what you will see in everyday use.
+This guide walks through every icon state, what each row in the popup Status Card means, how to pin the icon to your Windows 11 taskbar, and what you will see in everyday use. Everything works standalone through the built-in Windows `HidUsb` driver without requiring SteelSeries GG, and runs peacefully alongside GG and Sonar if you keep them open.
 
 ![Tray Icon Visual Cheat Sheet](images/visual-guide.png)
 
@@ -63,15 +63,15 @@ Windows remembers your pin choice across restarts. You can turn on **Start with 
 ## Everyday Scenarios
 
 ### Gaming on PC + Phone Calls on Bluetooth
-You turn on the headset with the power button for 2.4GHz PC audio, and your phone automatically reconnects to the headset over Bluetooth.
+You turn on the headset with the power button for 2.4 GHz PC audio, and your phone automatically reconnects to the headset over Bluetooth.
 - **What you see**: ![PC + Bluetooth Connected](images/icons/pc-connected-bt-connected.png) **Green headset with a solid blue corner badge**.
-- **Hover tooltip**: `Nova 7: PC 2.4GHz | BT Connected | 86%`
+- **Hover tooltip**: `Nova 7: PC 2.4 GHz | BT Connected | 86%`
 - **Why it helps**: You know before starting a game or call that both your PC audio and phone Bluetooth link are live, along with your real battery level.
 
 ### Headset Turned Off Overnight
 You hold the power button to shut the headset off at the end of the day, leaving the USB-C wireless receiver plugged into your desktop. Windows itself still claims "Headphones (Arctis Nova 7)" is connected and happily routes audio into thin air.
-- **What you see**: ![Headset Off, Dongle Plugged In](images/icons/dongle-only-headset-off.png) **Hollow amber headset**.
-- **Hover tooltip**: `Nova 7: Headset Off (Dongle In)`
+- **What you see**: ![Headset Off, Receiver Plugged In](images/icons/dongle-only-headset-off.png) **Hollow amber headset**.
+- **Hover tooltip**: `Nova 7: Off or Asleep (Receiver In)`
 - **Why it helps**: One glance at the taskbar tells you why you are not hearing audio from your speakers, and reminds you whether you actually remembered to turn the headset off so the battery does not drain overnight.
 
 ### Laptop Mode Without the USB Dongle
