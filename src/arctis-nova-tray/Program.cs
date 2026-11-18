@@ -203,7 +203,7 @@ public static partial class Program
 
             if (arg is "--help" or "-h" or "/?")
             {
-                stdout.WriteLine("ArctisNovaTray - SteelSeries Arctis Nova 7 System Tray Indicator");
+                stdout.WriteLine("ArctisNovaTray - SteelSeries Arctis Nova Wireless System Tray Indicator");
                 stdout.WriteLine("Usage:");
                 stdout.WriteLine("  ArctisNovaTray.exe                        Start tray indicator and open Status Card");
                 stdout.WriteLine("  ArctisNovaTray.exe --silent               Start tray indicator without opening Status Card");

@@ -1,8 +1,8 @@
-# Arctis Nova 7 System Tray: Visual Guide
+# Arctis Nova System Tray: Visual Guide
 
 [Back to README](../README.md) · [Website & Visual Overview](https://jreames.github.io/arctis-nova-tray/)
 
-This guide walks through every icon state, what each row in the popup Status Card means, how to pin the icon to your Windows 11 taskbar, and what you will see in everyday use. Everything works standalone through the built-in Windows `HidUsb` driver without requiring SteelSeries GG, and runs peacefully alongside GG and Sonar if you keep them open.
+This guide walks through every icon state, what each row in the popup Status Card means across supported SteelSeries Arctis Nova wireless headsets (`Nova 7`, `Nova 5/5X`, `Nova 3P/3X Wireless`, `Nova Pro Omni`, and `Arctis GameBuds`), how to pin the icon to your Windows 11 taskbar, and what you will see in everyday use. Everything works standalone through the built-in Windows `HidUsb` driver without requiring SteelSeries GG, and runs peacefully alongside GG and Sonar if you keep them open.
 
 ![Tray Icon Visual Cheat Sheet](images/visual-guide.png)
 
@@ -39,10 +39,10 @@ Left-click the tray icon at any time (or run `ArctisNovaTray.exe` / `Start-Arcti
 
 ![Status Card Tour and Taskbar Pinning](images/status-card-annotated.png)
 
-1. **Live Headset Icon, Status Pill & Close (`×`)**: Mirrors your current taskbar icon alongside an instant status pill (`PC CONNECTED`, `PC BLUETOOTH`, `HEADSET OFF`, or `DISCONNECTED`), a plain-English connection subtitle (`2.4 GHz Wireless · USB-C Receiver`, `Bluetooth Audio · PC Direct`, or `Wireless Gaming Headset`, with raw `USB Receiver ID` available on hover), and a keyboard-accessible `×` close button.
-2. **Headset**: Shows whether the wireless audio link to your headset is actually live (`Connected (2.4 GHz)` or `Connected (Bluetooth)`) versus powered down (`Off or Asleep` or `Disconnected`). When your boom mic is muted on the headset, an inline **`MIC MUTED`** badge appears right next to `Headset`.
-3. **USB-C Receiver**: Confirms whether the SteelSeries USB-C transmitter is physically plugged in (`Plugged In · Active`, `Plugged In · Waiting`, or `Unplugged`).
-4. **Bluetooth**: Reports the headset's own Bluetooth state (`Connected`, `Connected (This PC)`, `On · Waiting`, `Off`, or `Unavailable while off`). On Gen 2 / 2026 refresh firmware, the USB-C receiver reads this directly from the headset, so you can see when your headset is paired to your phone.
+1. **Live Headset Icon, Status Pill & Close (`×`)**: Mirrors your current taskbar icon alongside your detected model name (`Arctis Nova 7`, `Arctis Nova 5`, `Arctis Nova 3P Wireless`, `Arctis Nova Pro Omni`, `Arctis GameBuds`, or `Arctis Nova` when unplugged), an instant status pill (`PC CONNECTED`, `PC BLUETOOTH`, `HEADSET OFF`, or `DISCONNECTED`), a plain-English connection subtitle (`2.4 GHz Wireless · USB-C Receiver`, `2.4 GHz Wireless · USB Base Station`, `Bluetooth Audio · PC Direct`, or `Wireless Gaming Headset`, with raw `USB Receiver ID` and verification tier available on hover), and a keyboard-accessible `×` close button.
+2. **Headset**: Shows whether the wireless audio link to your headset is actually live (`Connected (2.4 GHz)` or `Connected (Bluetooth)`) versus powered down (`Off or Asleep` or `Disconnected`). When your boom mic is muted on Nova 7 Gen 2 / refresh or Nova Pro Omni hardware, an inline **`MIC MUTED`** badge appears right next to `Headset`.
+3. **USB-C Receiver**: Confirms whether the SteelSeries USB transmitter is physically plugged in (`Plugged In · Active`, `Plugged In · Waiting`, or `Unplugged`).
+4. **Bluetooth**: Reports Bluetooth state (`Connected`, `Connected to PC`, `On · Waiting`, `Off`, `Not linked to PC`, or `Unavailable while off`). On Nova 7 Gen 2 / 2026 refresh firmware, the USB-C receiver reads the headset's own Bluetooth radio directly so you can see when your headset is paired to your phone; on models whose 2.4 GHz receiver does not report phone Bluetooth (`Nova 5/5X`, `Nova 3P/3X`, `Nova Pro Omni`, `GameBuds`, and `Nova 7 Gen 1`), the card displays `Not linked to PC` unless connected directly to Windows Bluetooth.
 5. **Battery Gauge & Standby Bar**: Shows the real battery percentage (`86%`, or `42% · Charging`) with a high-contrast progress bar (green at 35%+, amber at 15-34%, red below 15%, and blue while charging). When the headset is turned off, cached receiver numbers are hidden and replaced with `"Turn headset on to read"` and a 4-segment standby track so you never get a fake `100%` reading.
 6. **Start with Windows, Live Timestamp & Refresh**: Includes an opt-in **Start with Windows** toggle switch (synced with the right-click tray menu) that starts the app quietly in the tray (`--silent`) when you sign in, alongside a live-ticking 12-hour timestamp (`Updated just now · 2:15:08 PM`) and tactile **Refresh** button (`F5`, confirming `Checking...` and `✓ Updated`).
 

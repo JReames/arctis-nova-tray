@@ -10,7 +10,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AssemblyName>ArctisNovaTray</AssemblyName>
     <RootNamespace>ArctisNovaTray</RootNamespace>
-    <Version>1.2.0</Version>
+    <Version>1.3.0</Version>
     <ApplicationIcon>assets\arctis-nova-tray.ico</ApplicationIcon>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
   </PropertyGroup>

@@ -44,10 +44,15 @@ internal static partial class Program
 
         Console.WriteLine("=== ArctisNovaTray Deterministic Test Suite ===");
 
-        Run("Supported Dongle PID Catalog (15 Nova 7 models, excludes 0x22A0 wired cable)", TestPidCatalog);
+        Run("Supported Dongle PID Catalog (22 Arctis Nova wireless PIDs, excludes 0x22A0 wired cable)", TestPidCatalog);
         Run("HID Decode: Live 0x22A1 Offline Report Ignores Cached 100% Battery", TestHidOffline22A1);
         Run("HID Decode: Gen 2 (0x22A1) Online + BT Off / Standby / Connected + Mic Mute", TestHidGen2OnlineStates);
         Run("HID Decode: Gen 1 (0x2202) Discrete Battery (0..4) & Non-0xB0 Rejection", TestHidGen1AndInvalidFrames);
+        Run("HID Decode: Nova 5 / 5X (0x2232, 0x2253) & Nova 3P / 3X Wireless (0x2269, 0x226D)", TestHidNova5AndNova3PStates);
+        Run("HID Decode: GameBuds (0x230A) Dual-Earbud Minimum Battery & Case Docked State", TestHidGameBudsDualEarbudStates);
+        Run("HID Decode: Nova Pro Omni GameHub (0x2290) ReportId 0x01 64B Protocol", TestHidNovaProOmniGameHubStates);
+        Run("Multi-Model Tooltips, Disconnected Fallback & Bluetooth Name Matching", TestMultiModelTooltipsAndBluetoothMatching);
+        Run("Model Verification Tier Metadata (Hardware-Verified vs Community-Spec)", TestModelVerificationTierMetadata);
         Run("State Machine: All PC & Bluetooth Combinations Map to Exact Visual Keys", TestStateCombinationMatrix);
         Run("Tooltip Formatter: Strict <63 Char Bound Across All States & Inputs", TestTooltipBounds);
         Run("Icon Renderer: Distinctness at 16/32/64px + PNG Export", TestIconRenderingAndExport);
@@ -83,21 +88,39 @@ internal static partial class Program
         ushort[] expected =
         [
             0x22A1, 0x227E, 0x22A7, 0x2298, 0x2258, 0x229E, 0x22AD, 0x22A5, 0x22A9,
-            0x2202, 0x2206, 0x22A4, 0x220A, 0x223A, 0x227A
+            0x2202, 0x2206, 0x22A4, 0x220A, 0x223A, 0x227A,
+            0x2232, 0x2253, 0x2264,
+            0x2269, 0x226D,
+            0x230A,
+            0x2290
         ];
 
-        AssertEqual(15, Nova7HidProtocol.SupportedDongleProductIds.Count, "Supported PID count");
+        AssertEqual(22, Nova7HidProtocol.SupportedDongleProductIds.Count, "Supported PID count");
         foreach (ushort pid in expected)
         {
             AssertTrue(Nova7HidProtocol.SupportedDongleProductIds.Contains(pid), $"Missing PID 0x{pid:X4}");
+            AssertTrue(Nova7HidProtocol.TryGetProfile(pid, out _), $"Missing profile for 0x{pid:X4}");
         }
 
         AssertTrue(!Nova7HidProtocol.SupportedDongleProductIds.Contains(0x22A0), "0x22A0 wired cable PID must not be in dongle set");
 
         byte[] req = Nova7HidProtocol.CreateStatusRequestReport(65);
-        AssertEqual(65, req.Length, "Request length");
-        AssertEqual((byte)0x00, req[0], "Report ID");
+        AssertEqual(65, req.Length, "Default request length");
+        AssertEqual((byte)0x00, req[0], "Default Report ID");
         AssertEqual((byte)0xB0, req[1], "Status opcode");
+
+        AssertTrue(Nova7HidProtocol.TryGetProfile(0x22A1, out HeadsetProtocolProfile nova7Profile), "0x22A1 profile");
+        byte[] nova7Req = Nova7HidProtocol.CreateStatusRequestReport(nova7Profile);
+        AssertEqual(65, nova7Req.Length, "0x22A1 request length");
+        AssertEqual((byte)0x00, nova7Req[0], "0x22A1 Report ID");
+        AssertEqual((byte)0xB0, nova7Req[1], "0x22A1 opcode");
+
+        AssertTrue(Nova7HidProtocol.TryGetProfile(0x2290, out HeadsetProtocolProfile omniProfile), "0x2290 profile");
+        AssertTrue(omniProfile.ControlUsage is null, "0x2290 ControlUsage must be null (any usage on 0xFFC0)");
+        byte[] omniReq = Nova7HidProtocol.CreateStatusRequestReport(omniProfile);
+        AssertEqual(64, omniReq.Length, "0x2290 request length (64B)");
+        AssertEqual((byte)0x01, omniReq[0], "0x2290 Report ID (0x01)");
+        AssertEqual((byte)0xB0, omniReq[1], "0x2290 opcode (0xB0)");
     }
 
     private static void TestHidOffline22A1()
@@ -185,6 +208,257 @@ internal static partial class Program
         otherFrame[1] = 0x20;
         AssertTrue(!Nova7HidProtocol.TryParseStatusReport(otherFrame, 0x22A1, out _), "0x20 opcode must be rejected");
         AssertTrue(!Nova7HidProtocol.TryParseStatusReport([0x00, 0xB0], 0x22A1, out _), "Truncated buffer must be rejected");
+    }
+
+    private static void TestHidNova5AndNova3PStates()
+    {
+        // 1. Nova 5 (0x2232) online with 78% battery, charging, ChatMix 80/100
+        byte[] nova5On = new byte[65];
+        nova5On[0] = 0x00;
+        nova5On[1] = 0xB0;
+        nova5On[2] = 0x03; // Online (!= 0x02 && != 0x00)
+        nova5On[4] = 78;   // data[3] = battery 0..100
+        nova5On[5] = 0x01; // data[4] = charging
+        nova5On[6] = 80;   // data[5] = chatMixGame
+        nova5On[7] = 100;  // data[6] = chatMixChat
+
+        AssertTrue(Nova7HidProtocol.TryParseStatusReport(nova5On, 0x2232, out var d5) && d5 is not null, "Parse Nova 5 online");
+        AssertEqual("Arctis Nova 5", d5!.ProductName, "Nova 5 product name");
+        AssertTrue(d5.HeadsetOnline24Ghz, "Nova 5 online");
+        AssertEqual(78, d5.BatteryPercent, "Nova 5 battery 78%");
+        AssertEqual(BatteryChargingState.Charging, d5.Charging, "Nova 5 charging");
+        AssertEqual(80, d5.ChatMixGame, "Nova 5 ChatMix game");
+        AssertEqual(100, d5.ChatMixChat, "Nova 5 ChatMix chat");
+        AssertTrue(d5.HidBluetoothState is null, "Nova 5 HID BT null");
+
+        // 2. Nova 5X (0x2253 & 0x2264) offline (state 0x02 and 0x00) ignores stale battery byte
+        byte[] nova5Off = (byte[])nova5On.Clone();
+        nova5Off[2] = 0x02;
+        AssertTrue(Nova7HidProtocol.TryParseStatusReport(nova5Off, 0x2253, out var d5Off) && d5Off is not null, "Parse Nova 5X offline 0x02");
+        AssertTrue(!d5Off!.HeadsetOnline24Ghz, "Nova 5X offline for 0x02");
+        AssertTrue(d5Off.BatteryPercent is null, "Nova 5X offline battery null");
+        AssertEqual(BatteryChargingState.Disconnected, d5Off.Charging, "Nova 5X offline Disconnected");
+
+        nova5Off[2] = 0x00;
+        AssertTrue(Nova7HidProtocol.TryParseStatusReport(nova5Off, 0x2264, out var d5Zero) && d5Zero is not null, "Parse Nova 5X offline 0x00");
+        AssertTrue(!d5Zero!.HeadsetOnline24Ghz, "Nova 5X offline for 0x00");
+
+        // 3. Nova 3P Wireless (0x2269) & Nova 3X Wireless (0x226D) minimum 5-byte raw payload
+        byte[] nova3PRaw = [0xB0, 0x01, 0x00, 63, 0x00];
+        AssertTrue(Nova7HidProtocol.TryParseStatusReport(nova3PRaw, 0x2269, out var d3P) && d3P is not null, "Parse Nova 3P 5-byte raw");
+        AssertEqual("Arctis Nova 3P Wireless", d3P!.ProductName, "Nova 3P product name");
+        AssertTrue(d3P.HeadsetOnline24Ghz, "Nova 3P online (state 0x01)");
+        AssertEqual(63, d3P.BatteryPercent, "Nova 3P battery 63%");
+        AssertEqual(BatteryChargingState.Discharging, d3P.Charging, "Nova 3P discharging");
+        AssertEqual(0, d3P.ChatMixGame, "Nova 3P ChatMix 0");
+
+        byte[] nova3XWin = new byte[65];
+        nova3XWin[0] = 0x00;
+        nova3XWin[1] = 0xB0;
+        nova3XWin[2] = 0x03;
+        nova3XWin[4] = 91;
+        nova3XWin[5] = 0x01;
+        AssertTrue(Nova7HidProtocol.TryParseStatusReport(nova3XWin, 0x226D, out var d3X) && d3X is not null, "Parse Nova 3X 65B");
+        AssertEqual("Arctis Nova 3X Wireless", d3X!.ProductName, "Nova 3X product name");
+        AssertEqual(91, d3X.BatteryPercent, "Nova 3X battery 91%");
+        AssertEqual(BatteryChargingState.Charging, d3X.Charging, "Nova 3X charging");
+    }
+
+    private static void TestHidGameBudsDualEarbudStates()
+    {
+        // 1. Both earbuds active (0x03 / 0x03) -> battery = min(left 82, right 64) = 64%
+        byte[] bothActive = new byte[65];
+        bothActive[0] = 0x00;
+        bothActive[1] = 0xB0;
+        bothActive[4] = 0x03; // data[3] = left active
+        bothActive[5] = 0x03; // data[4] = right active
+        bothActive[6] = 82;   // data[5] = left battery
+        bothActive[7] = 64;   // data[6] = right battery
+
+        AssertTrue(Nova7HidProtocol.TryParseStatusReport(bothActive, 0x230A, out var gBoth) && gBoth is not null, "Parse GameBuds both active");
+        AssertEqual("Arctis GameBuds", gBoth!.ProductName, "GameBuds product name");
+        AssertTrue(gBoth.HeadsetOnline24Ghz, "GameBuds online when both active");
+        AssertEqual(64, gBoth.BatteryPercent, "GameBuds min battery (64%)");
+        AssertEqual(BatteryChargingState.Discharging, gBoth.Charging, "GameBuds discharging");
+
+        // 2. Single earbud active (left 0x03 = 82%, right docked 0x02 = 15% ignored) -> 82%
+        byte[] leftOnly = (byte[])bothActive.Clone();
+        leftOnly[5] = 0x02;
+        leftOnly[7] = 15;
+        AssertTrue(Nova7HidProtocol.TryParseStatusReport(leftOnly, 0x230A, out var gLeft) && gLeft is not null, "Parse GameBuds left only");
+        AssertTrue(gLeft!.HeadsetOnline24Ghz, "GameBuds online when left active");
+        AssertEqual(82, gLeft.BatteryPercent, "GameBuds left-only battery 82%");
+
+        // 3. Right earbud only active (left docked 0x02, right 0x03 = 51%) -> 51%
+        byte[] rightOnly = (byte[])bothActive.Clone();
+        rightOnly[4] = 0x02;
+        rightOnly[5] = 0x03;
+        rightOnly[7] = 51;
+        AssertTrue(Nova7HidProtocol.TryParseStatusReport(rightOnly, 0x230A, out var gRight) && gRight is not null, "Parse GameBuds right only");
+        AssertEqual(51, gRight!.BatteryPercent, "GameBuds right-only battery 51%");
+
+        // 4. Both earbuds docked in case (0x02 / 0x02) -> offline, null battery, Disconnected
+        byte[] bothDocked = (byte[])bothActive.Clone();
+        bothDocked[4] = 0x02;
+        bothDocked[5] = 0x02;
+        AssertTrue(Nova7HidProtocol.TryParseStatusReport(bothDocked, 0x230A, out var gOff) && gOff is not null, "Parse GameBuds docked");
+        AssertTrue(!gOff!.HeadsetOnline24Ghz, "GameBuds offline when both docked");
+        AssertTrue(gOff.BatteryPercent is null, "GameBuds docked battery null");
+        AssertEqual(BatteryChargingState.Disconnected, gOff.Charging, "GameBuds docked Disconnected");
+    }
+
+    private static void TestHidNovaProOmniGameHubStates()
+    {
+        // 1. Online (reply[14] == 0x08), rawBatt 99 -> 100%, charging (reply[15] == 0x02), mic muted (reply[9] == 0x01)
+        byte[] omniOn = new byte[64];
+        omniOn[0] = 0x01; // ReportId = 0x01
+        omniOn[1] = 0xB0; // Opcode = 0xB0
+        omniOn[6] = 99;   // rawBatt >= 99 -> 100%
+        omniOn[9] = 0x01; // micMuted = true
+        omniOn[14] = 0x08; // online
+        omniOn[15] = 0x02; // charging
+
+        AssertTrue(Nova7HidProtocol.TryParseStatusReport(omniOn, 0x2290, out var dOn) && dOn is not null, "Parse Nova Pro Omni online");
+        AssertEqual("Arctis Nova Pro Omni", dOn!.ProductName, "Nova Pro Omni product name");
+        AssertTrue(dOn.HeadsetOnline24Ghz, "Nova Pro Omni online");
+        AssertEqual(100, dOn.BatteryPercent, "Nova Pro Omni 99 -> 100%");
+        AssertEqual(BatteryChargingState.Charging, dOn.Charging, "Nova Pro Omni charging");
+        AssertEqual(true, dOn.MicMuted, "Nova Pro Omni mic muted");
+        AssertTrue(dOn.HidBluetoothState is null, "Nova Pro Omni HID BT null");
+
+        // 2. Discharging at 74% + unmuted
+        byte[] omniDis = (byte[])omniOn.Clone();
+        omniDis[6] = 74;
+        omniDis[9] = 0x00;
+        omniDis[15] = 0x00;
+        AssertTrue(Nova7HidProtocol.TryParseStatusReport(omniDis, 0x2290, out var dDis) && dDis is not null, "Parse Nova Pro Omni discharging");
+        AssertEqual(74, dDis!.BatteryPercent, "Nova Pro Omni 74%");
+        AssertEqual(BatteryChargingState.Discharging, dDis.Charging, "Nova Pro Omni discharging");
+        AssertEqual(false, dDis.MicMuted, "Nova Pro Omni mic unmuted");
+
+        // 3. Offline (reply[14] == 0x04) -> null battery, Disconnected, null mic
+        byte[] omniOff = (byte[])omniOn.Clone();
+        omniOff[14] = 0x04;
+        AssertTrue(Nova7HidProtocol.TryParseStatusReport(omniOff, 0x2290, out var dOff) && dOff is not null, "Parse Nova Pro Omni offline");
+        AssertTrue(!dOff!.HeadsetOnline24Ghz, "Nova Pro Omni offline");
+        AssertTrue(dOff.BatteryPercent is null, "Nova Pro Omni offline battery null");
+        AssertEqual(BatteryChargingState.Disconnected, dOff.Charging, "Nova Pro Omni offline Disconnected");
+        AssertTrue(dOff.MicMuted is null, "Nova Pro Omni offline mic null");
+
+        // 4. Reject ReportId 0x00 or truncated < 16B on 0x2290
+        byte[] wrongReportId = (byte[])omniOn.Clone();
+        wrongReportId[0] = 0x00;
+        AssertTrue(!Nova7HidProtocol.TryParseStatusReport(wrongReportId, 0x2290, out _), "0x2290 must reject ReportId 0x00");
+        AssertTrue(!Nova7HidProtocol.TryParseStatusReport(omniOn[..15], 0x2290, out _), "0x2290 must reject < 16 bytes");
+    }
+
+    private static void TestMultiModelTooltipsAndBluetoothMatching()
+    {
+        DateTimeOffset now = DateTimeOffset.Now;
+
+        // 1. Existing Nova 7 (0x22A1) tooltips stay byte-for-byte identical
+        var nova7Active = new HeadsetSnapshot
+        {
+            Timestamp = now,
+            PcConnection = PcConnectionState.Connected24Ghz,
+            Bluetooth = BluetoothState.Connected,
+            DonglePresent = true,
+            DongleProductName = "Arctis Nova 7",
+            DongleVidPid = "1038:22A1",
+            HeadsetOnline24Ghz = true,
+            BatteryPercent = 86,
+            Charging = BatteryChargingState.Discharging
+        };
+        AssertEqual("Nova 7: PC 2.4 GHz | BT Connected | 86%", TooltipFormatter.Format(nova7Active), "Nova 7 active tooltip");
+        AssertEqual("Arctis Nova 7", nova7Active.DeviceDisplayName, "Nova 7 display name");
+
+        var nova7Off = new HeadsetSnapshot
+        {
+            Timestamp = now,
+            PcConnection = PcConnectionState.DongleOnlyHeadsetOff,
+            Bluetooth = BluetoothState.Off,
+            DonglePresent = true,
+            DongleProductName = "Arctis Nova 7",
+            DongleVidPid = "1038:22A1"
+        };
+        AssertEqual("Nova 7: Off or Asleep (Receiver In)", TooltipFormatter.Format(nova7Off), "Nova 7 off tooltip");
+
+        // 2. Completely disconnected fallback uses "Arctis Nova"
+        var disconnected = new HeadsetSnapshot
+        {
+            Timestamp = now,
+            PcConnection = PcConnectionState.Disconnected,
+            Bluetooth = BluetoothState.Off
+        };
+        AssertEqual("Arctis Nova", disconnected.DeviceDisplayName, "Disconnected DeviceDisplayName");
+        AssertEqual("Arctis Nova: Disconnected (No Receiver / BT)", TooltipFormatter.Format(disconnected), "Disconnected tooltip");
+
+        // 3. Multi-model VID:PID prefix resolution across Nova 5, 5X, 3P, 3X, Nova Pro, GameBuds
+        (string VidPid, string Product, string ExpectedPrefix)[] models =
+        [
+            ("1038:2232", "Arctis Nova 5", "Nova 5"),
+            ("1038:2253", "Arctis Nova 5X", "Nova 5X"),
+            ("1038:2269", "Arctis Nova 3P Wireless", "Nova 3P"),
+            ("1038:226D", "Arctis Nova 3X Wireless", "Nova 3X"),
+            ("1038:2290", "Arctis Nova Pro Omni", "Nova Pro"),
+            ("1038:230A", "Arctis GameBuds", "GameBuds")
+        ];
+
+        foreach (var (vidPid, product, prefix) in models)
+        {
+            var s = new HeadsetSnapshot
+            {
+                Timestamp = now,
+                PcConnection = PcConnectionState.Connected24Ghz,
+                Bluetooth = BluetoothState.Off,
+                DonglePresent = true,
+                DongleProductName = product,
+                DongleVidPid = vidPid,
+                HeadsetOnline24Ghz = true,
+                BatteryPercent = 72,
+                Charging = BatteryChargingState.Discharging
+            };
+            AssertEqual($"{prefix}: PC 2.4 GHz | BT Off | 72%", TooltipFormatter.Format(s), $"Tooltip for {vidPid}");
+        }
+
+        // 4. PC Bluetooth-only fallback prefix + Win32BluetoothProbe name matching
+        var btGameBuds = new HeadsetSnapshot
+        {
+            Timestamp = now,
+            PcConnection = PcConnectionState.ConnectedBluetooth,
+            Bluetooth = BluetoothState.Connected,
+            WindowsBluetoothConnected = true,
+            WindowsBluetoothDeviceName = "SteelSeries Arctis GameBuds"
+        };
+        AssertEqual("GameBuds: PC BT | BT Connected", TooltipFormatter.Format(btGameBuds), "BT GameBuds tooltip");
+
+        AssertTrue(Win32BluetoothProbe.IsMatchingHeadsetName("Arctis Nova 5X"), "BT match Nova 5X");
+        AssertTrue(Win32BluetoothProbe.IsMatchingHeadsetName("Arctis Nova 3P Wireless"), "BT match Nova 3P");
+        AssertTrue(Win32BluetoothProbe.IsMatchingHeadsetName("Arctis Nova Pro Wireless"), "BT match Nova Pro");
+        AssertTrue(Win32BluetoothProbe.IsMatchingHeadsetName("GameBuds"), "BT match GameBuds");
+        AssertTrue(!Win32BluetoothProbe.IsMatchingHeadsetName("Generic Speakers"), "BT reject unrelated device");
+    }
+
+    private static void TestModelVerificationTierMetadata()
+    {
+        AssertTrue(Nova7HidProtocol.TryGetProfile(0x22A1, out var p22A1), "0x22A1 profile");
+        AssertEqual(ModelVerificationTier.HardwareVerified, p22A1.VerificationTier, "0x22A1 HardwareVerified");
+        AssertEqual("Hardware-Verified", p22A1.VerificationTierLabel, "0x22A1 label");
+
+        int hardwareVerifiedCount = Nova7HidProtocol.ProfilesByPid.Values.Count(p => p.VerificationTier == ModelVerificationTier.HardwareVerified);
+        int communitySpecCount = Nova7HidProtocol.ProfilesByPid.Values.Count(p => p.VerificationTier == ModelVerificationTier.CommunitySpec);
+        AssertEqual(1, hardwareVerifiedCount, "HardwareVerified count");
+        AssertEqual(21, communitySpecCount, "CommunitySpec count");
+
+        DateTimeOffset now = DateTimeOffset.Now;
+        HeadsetSnapshot verifiedSnap = Nova7HardwareProbe.CombineStates(now, true, "Arctis Nova 7", "1038:22A1", null, WindowsBluetoothHeadsetStatus.None);
+        AssertEqual("Hardware-Verified", verifiedSnap.VerificationTier, "Snapshot tier for 0x22A1");
+
+        HeadsetSnapshot communitySnap = Nova7HardwareProbe.CombineStates(now, true, "Arctis Nova 5", "1038:2232", null, WindowsBluetoothHeadsetStatus.None);
+        AssertEqual("Community-Spec", communitySnap.VerificationTier, "Snapshot tier for 0x2232");
+
+        HeadsetSnapshot noneSnap = Nova7HardwareProbe.CombineStates(now, false, null, null, null, WindowsBluetoothHeadsetStatus.None);
+        AssertTrue(noneSnap.VerificationTier is null, "Disconnected snapshot tier should be null");
     }
 
     private static void TestStateCombinationMatrix()

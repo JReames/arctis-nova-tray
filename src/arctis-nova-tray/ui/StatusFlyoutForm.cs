@@ -4,6 +4,7 @@ using System.Drawing.Text;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using ArctisNovaTray.Models;
+using ArctisNovaTray.Protocol;
 using ArctisNovaTray.Rendering;
 
 namespace ArctisNovaTray.Ui;
@@ -81,7 +82,7 @@ public sealed partial class StatusFlyoutForm : Form
         BackColor = Color.FromArgb(255, 255, 255);
         ForeColor = Color.FromArgb(15, 23, 42);
         AutoScaleMode = AutoScaleMode.None;
-        AccessibleName = "Arctis Nova 7 Status Card";
+        AccessibleName = "Arctis Nova Status Card";
         AccessibleRole = AccessibleRole.Dialog;
 
         try
@@ -351,7 +352,9 @@ public sealed partial class StatusFlyoutForm : Form
                 : overStartup
                     ? "Automatically start quietly in your system tray when you sign in to Windows"
                     : overSub && !string.IsNullOrWhiteSpace(_snapshot.DongleVidPid)
-                        ? $"USB Receiver ID: {_snapshot.DongleVidPid}"
+                        ? (!string.IsNullOrWhiteSpace(_snapshot.VerificationTier)
+                            ? $"USB Receiver ID: {_snapshot.DongleVidPid} · {_snapshot.VerificationTier}"
+                            : $"USB Receiver ID: {_snapshot.DongleVidPid}")
                         : null;
 
         if (!string.Equals(_activeTooltipCaption, desiredTip, StringComparison.Ordinal))
@@ -707,6 +710,10 @@ public sealed partial class StatusFlyoutForm : Form
 
         float titleLeft = pad + iconSize + (12f * s);
         float titleMaxWidth = Math.Max(100f, pillRect.Left - titleLeft - (8f * s));
+        bool isBaseStation = snapshot.DongleVidPid?.EndsWith(":2290", StringComparison.OrdinalIgnoreCase) == true;
+        bool isEarbuds = snapshot.DongleVidPid?.EndsWith(":230A", StringComparison.OrdinalIgnoreCase) == true ||
+                         snapshot.DeviceDisplayName.Contains("GameBuds", StringComparison.OrdinalIgnoreCase);
+
         using (var primaryInkBrush = new SolidBrush(Color.FromArgb(15, 23, 42)))  // #0F172A (>17:1)
         using (var subtitleBrush = new SolidBrush(Color.FromArgb(51, 65, 85)))    // #334155 (>10:1)
         {
@@ -716,12 +723,31 @@ public sealed partial class StatusFlyoutForm : Form
                 FormatFlags = StringFormatFlags.NoWrap
             };
 
+            var sfTitle = new StringFormat
+            {
+                Alignment = StringAlignment.Near,
+                LineAlignment = StringAlignment.Center,
+                Trimming = StringTrimming.EllipsisCharacter,
+                FormatFlags = StringFormatFlags.NoWrap
+            };
+
             var titleRect = new RectangleF(titleLeft, headerTop - (2f * s), titleMaxWidth, 26f * s);
-            g.DrawString(snapshot.DeviceDisplayName, titleFont, primaryInkBrush, titleRect, sfTrim);
+            string displayTitle = snapshot.DeviceDisplayName;
+            float measuredTitleWidth = g.MeasureString(displayTitle, titleFont).Width;
+            if (measuredTitleWidth <= titleMaxWidth + (2f * s))
+            {
+                g.DrawString(displayTitle, titleFont, primaryInkBrush, titleRect, sfTrim);
+            }
+            else
+            {
+                float fittedPx = measuredTitleWidth <= titleMaxWidth * 1.15f ? 15.8f * s : 14.2f * s;
+                using var fittedTitleFont = new Font("Segoe UI Semibold", fittedPx, FontStyle.Bold, GraphicsUnit.Pixel);
+                g.DrawString(displayTitle, fittedTitleFont, primaryInkBrush, titleRect, sfTitle);
+            }
 
             // Consumer-friendly plain-English subtitle with >=5px vertical clearance below status pill
             string subtitle = snapshot.DonglePresent
-                ? "2.4 GHz Wireless · USB-C Receiver"
+                ? (isBaseStation ? "2.4 GHz Wireless · USB Base Station" : "2.4 GHz Wireless · USB-C Receiver")
                 : snapshot.WindowsBluetoothConnected
                     ? "Bluetooth Audio · PC Direct"
                     : "Wireless Gaming Headset";
@@ -744,7 +770,7 @@ public sealed partial class StatusFlyoutForm : Form
         DrawStatusRow(
             g,
             new RectangleF(pad, y, rowWidth, rowHeight),
-            "Headset",
+            isEarbuds ? "Earbuds" : "Headset",
             headsetText,
             headsetDot,
             headsetStyle,
@@ -756,7 +782,7 @@ public sealed partial class StatusFlyoutForm : Form
         y += rowHeight + rowGap;
 
         (string receiverText, Color receiverDot, DotStyle receiverStyle) = FormatReceiverRow(snapshot);
-        DrawStatusRow(g, new RectangleF(pad, y, rowWidth, rowHeight), "USB-C Receiver", receiverText, receiverDot, receiverStyle, rowLabelFont, rowValueFont, s);
+        DrawStatusRow(g, new RectangleF(pad, y, rowWidth, rowHeight), isBaseStation ? "USB Base Station" : "USB-C Receiver", receiverText, receiverDot, receiverStyle, rowLabelFont, rowValueFont, s);
         y += rowHeight + rowGap;
 
         (string btText, Color btDot, DotStyle btStyle, bool btSubdued) = FormatBluetoothRow(snapshot);
@@ -1279,11 +1305,13 @@ public sealed partial class StatusFlyoutForm : Form
             ratio = 0f;
             hasLiveGauge = false;
             barColor = Color.FromArgb(100, 116, 139);
+            bool isEarbuds = snapshot.DongleVidPid?.EndsWith(":230A", StringComparison.OrdinalIgnoreCase) == true ||
+                             snapshot.DeviceDisplayName.Contains("GameBuds", StringComparison.OrdinalIgnoreCase);
             battText = snapshot.PcConnection switch
             {
-                PcConnectionState.DongleOnlyHeadsetOff => "Turn headset on to read",
+                PcConnectionState.DongleOnlyHeadsetOff => isEarbuds ? "Take earbuds out to read" : "Turn headset on to read",
                 PcConnectionState.ConnectedBluetooth => "Not reported over Bluetooth",
-                _ => "Connect headset to read"
+                _ => isEarbuds ? "Connect earbuds to read" : "Connect headset to read"
             };
             g.DrawString(battText, helperFont, helperValueBrush, topLineRect, sfRight);
         }
@@ -1498,6 +1526,15 @@ public sealed partial class StatusFlyoutForm : Form
         if (s.PcConnection == PcConnectionState.DongleOnlyHeadsetOff && !s.WindowsBluetoothConnected)
         {
             return ("Unavailable while off", Color.FromArgb(71, 85, 105), DotStyle.MutedDash, true);
+        }
+
+        if (s.PcConnection == PcConnectionState.Connected24Ghz &&
+            s.Bluetooth == BluetoothState.Off &&
+            !s.WindowsBluetoothConnected &&
+            Nova7HidProtocol.TryGetProfileByVidPid(s.DongleVidPid, out HeadsetProtocolProfile? profile) &&
+            profile.ProtocolFamily != NovaProtocolFamily.Nova7Gen2DirectPercentAndBluetooth)
+        {
+            return ("Not linked to PC", Color.FromArgb(71, 85, 105), DotStyle.MutedDash, true);
         }
 
         return s.Bluetooth switch

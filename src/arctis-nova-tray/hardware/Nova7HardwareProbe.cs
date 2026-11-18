@@ -15,8 +15,10 @@ public sealed class Nova7HardwareProbe : IHeadsetProbe
             Nova7HidProtocol.VendorId,
             Nova7HidProtocol.SupportedDongleProductIds);
 
-        HidDeviceCandidate? controlDevice = novaHidDevices.FirstOrDefault(
-            d => d.UsagePage == Nova7HidProtocol.ControlUsagePage && d.Usage == Nova7HidProtocol.ControlUsage);
+        HidDeviceCandidate? controlDevice = novaHidDevices.FirstOrDefault(d =>
+            Nova7HidProtocol.TryGetProfile(d.ProductId, out HeadsetProtocolProfile? p) &&
+            d.UsagePage == p.ControlUsagePage &&
+            (p.ControlUsage is null || d.Usage == p.ControlUsage.Value));
 
         HidDeviceCandidate? anyDongleInterface = controlDevice ?? novaHidDevices.FirstOrDefault();
         bool donglePresent = anyDongleInterface is not null;
@@ -26,18 +28,19 @@ public sealed class Nova7HardwareProbe : IHeadsetProbe
 
         if (controlDevice is not null)
         {
+            HeadsetProtocolProfile profile = Nova7HidProtocol.GetProfileOrDefault(controlDevice.ProductId);
             byte[] request = Nova7HidProtocol.CreateStatusRequestReport(
-                controlDevice.OutputReportByteLength > 0
-                    ? controlDevice.OutputReportByteLength
-                    : Nova7HidProtocol.DefaultReportLength);
+                profile,
+                controlDevice.OutputReportByteLength);
 
             if (Win32HidInterop.TryRequestReport(
                 controlDevice,
                 request,
-                Nova7HidProtocol.StatusOpcode,
+                profile.StatusOpcode,
                 HidQueryTimeoutMs,
                 out byte[]? responseBytes,
-                out string? hidError) &&
+                out string? hidError,
+                expectedReportId: profile.ReportId) &&
                 responseBytes is not null)
             {
                 if (!Nova7HidProtocol.TryParseStatusReport(responseBytes, controlDevice.ProductId, out decodedReport))
@@ -52,15 +55,15 @@ public sealed class Nova7HardwareProbe : IHeadsetProbe
         }
         else if (donglePresent)
         {
-            diagnosticNote = "Nova 7 dongle detected, but control HID collection (0xFFC0:0x0001) was not found.";
+            diagnosticNote = "SteelSeries Nova receiver detected, but control HID collection (0xFFC0) was not found.";
         }
 
         WindowsBluetoothHeadsetStatus winBt = Win32BluetoothProbe.QueryHeadsetBluetooth();
 
         string? dongleProductName = decodedReport?.ProductName
             ?? anyDongleInterface?.ProductString
-            ?? (anyDongleInterface is not null && Nova7HidProtocol.TryGetModelSpec(anyDongleInterface.ProductId, out Nova7ModelSpec spec)
-                ? spec.DisplayName
+            ?? (anyDongleInterface is not null && Nova7HidProtocol.TryGetProfile(anyDongleInterface.ProductId, out HeadsetProtocolProfile? matchedProfile)
+                ? matchedProfile.DisplayName
                 : null);
 
         string? dongleVidPid = anyDongleInterface is not null
@@ -133,6 +136,11 @@ public sealed class Nova7HardwareProbe : IHeadsetProbe
             btSource = BluetoothSource.None;
         }
 
+        string? verificationTier = donglePresent &&
+            Nova7HidProtocol.TryGetProfileByVidPid(dongleVidPid, out HeadsetProtocolProfile? profile)
+                ? profile.VerificationTierLabel
+                : null;
+
         return new HeadsetSnapshot
         {
             Timestamp = timestamp,
@@ -142,6 +150,7 @@ public sealed class Nova7HardwareProbe : IHeadsetProbe
             DonglePresent = donglePresent,
             DongleProductName = dongleProductName,
             DongleVidPid = dongleVidPid,
+            VerificationTier = verificationTier,
             HeadsetOnline24Ghz = online24Ghz,
             WindowsBluetoothPaired = winBt.Paired,
             WindowsBluetoothConnected = winBt.IsConnected,

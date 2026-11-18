@@ -1,12 +1,12 @@
-# Arctis Nova 7 System Tray (`arctis-nova-tray`)
+# Arctis Nova System Tray (`arctis-nova-tray`)
 
 ## 1. Context and Scope
 - **Repository Root**: Root directory containing `ArctisNovaTray.sln`
-- **Deliverable**: Standalone Windows 11 system tray application (`ArctisNovaTray.exe`, targeting `net9.0-windows`) in clean Light Mode that displays real-time PC 2.4GHz wireless connection status, USB dongle presence, headset Bluetooth state, and battery level for SteelSeries Arctis Nova 7 headsets.
+- **Deliverable**: Standalone Windows 11 system tray application (`ArctisNovaTray.exe`, targeting `net9.0-windows`) in clean Light Mode that displays real-time PC 2.4 GHz wireless connection status, USB receiver presence, Bluetooth state, and battery level across `22` supported wireless USB PIDs in the modern SteelSeries Arctis Nova wireless lineup (`Nova 7`, `Nova 5/5X`, `Nova 3P/3X Wireless`, `Nova Pro Omni`, `GameBuds`).
 
 ## 2. Boundaries and Sources of Truth
 - **Sources of Truth**:
-  - HID vendor protocol constants and byte decoding: `src/arctis-nova-tray/protocol/Nova7HidProtocol.cs`
+  - Data-driven HID vendor protocol profiles (`22` wireless PIDs), verification tiers (`HardwareVerified` vs `CommunitySpec`), and byte decoding: `src/arctis-nova-tray/protocol/Nova7HidProtocol.cs`
   - Win32 HID and Windows Bluetooth PnP probing: `src/arctis-nova-tray/hardware/`
   - Dark- and light-taskbar adaptive DPI-aware GDI+ icon rendering, multi-resolution `.ico` generation, and `HICON` lifecycle: `src/arctis-nova-tray/rendering/`
   - Opt-in Windows login startup registration (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`): `src/arctis-nova-tray/services/StartupRegistrationService.cs`
@@ -24,6 +24,7 @@
    - `Program.Main` checks `FindWindowW("Shell_TrayWnd", null)` before acquiring `Local\ArctisNovaTray_SingleInstance_v1` (exiting with code `3` when no interactive taskbar is reachable unless `--allow-headless` is passed).
    - Automated or sandboxed verification sessions that launch `ArctisNovaTray.exe` with `--allow-headless` (`-AllowHeadless`) must run `.\scripts\Stop-ArctisNovaTray.ps1` before finishing so no headless process holds `Local\ArctisNovaTray_SingleInstance_v1`.
 6. **Naming Discipline**: Keep all directory names strictly lowercase kebab-case (`src/arctis-nova-tray/`, `tests/arctis-nova-tray-tests/`, `scripts/`, `docs/images/icons/`, `assets/`, `services/`) and keep PowerShell scripts in approved `Verb-Noun.ps1` form (`Start-ArctisNovaTray.ps1`, `Stop-ArctisNovaTray.ps1`, `Get-ArctisNovaStatus.ps1`).
+7. **Pull Requests for Grouped Changes**: Never commit or push grouped changes directly to `main`. Develop grouped changes on a descriptive feature branch, open a GitHub Pull Request with a summary and verification checklist, and land changes through PR merge.
 
 ## 4. Required Verification
 Run from the repository root:
@@ -68,17 +69,18 @@ Run from the repository root:
 - `scripts/Start-ArctisNovaTray.ps1`: Detached launcher supporting both packaged release layouts and source checkouts (`-Restart`, `-Silent`, `-AllowHeadless`, `-EnableStartup`, `-DisableStartup`, `-Build`), bringing the light-mode Status Card to the front when already running.
 - `scripts/Stop-ArctisNovaTray.ps1`: Graceful tray shutdown helper (signals `Local\ArctisNovaTray_Shutdown_v1` before process cleanup; supports `-DisableStartup`).
 - `scripts/Get-ArctisNovaStatus.ps1`: Synchronous PowerShell status probe wrapper returning a parsed status object by default or raw JSON with `-RawJson`.
+- `.github/ISSUE_TEMPLATE/hardware-verification.md`: Structured GitHub issue template for community owners submitting `--status-json` captures to promote `Community-Spec` PIDs to `Hardware-Verified`.
 - `src/arctis-nova-tray/`:
   - `Program.cs`: CLI flag handling (`--status-json`, `--enable-startup`, `--disable-startup`, `--startup-status`, `--export-icons`, `--help`), taskbar guard, single-instance `Mutex`, and WinForms bootstrap.
   - `assets/arctis-nova-tray.ico`: Multi-resolution Win32 `.ico` embedded in `ArctisNovaTray.exe` via `<ApplicationIcon>`.
   - `models/`: `HeadsetSnapshot`, visual state enums, and `IHeadsetProbe`.
-  - `protocol/`: `Nova7HidProtocol` VID/PID table, status request framing, and HID report byte parser.
+  - `protocol/`: `Nova7HidProtocol` data-driven `HeadsetProtocolProfile` catalog (`22` wireless PIDs across 6 protocol families), status request framing, and HID report byte parser.
   - `hardware/`: `Win32HidInterop`, `Win32BluetoothProbe`, and `Nova7HardwareProbe`.
   - `services/`: `StartupRegistrationService` managing opt-in Windows login registration (`--silent`).
   - `rendering/`: `TrayIconRenderer`, `TrayIconCache`, and `TooltipFormatter`.
   - `ui/`: `TrayApplicationContext`, `StatusFlyoutForm` (Light Mode), and `DeviceChangeMonitor` (`WM_DEVICECHANGE`).
 - `tests/arctis-nova-tray-tests/`:
-  - `Program.cs`: Deterministic 13-case test runner covering HID report parsing across all Nova 7 states, embedded `.ico` validation, startup registration, tooltip bounds, icon rendering, PNG export, tray lifecycle guards, and live probe execution.
+  - `Program.cs`: Deterministic 18-case test runner covering HID report parsing across all 6 Arctis Nova wireless protocol families (`22` PIDs), verification tier metadata, multi-model tooltips and Bluetooth matching, embedded `.ico` validation, startup registration, icon rendering, PNG export, tray lifecycle guards, and live probe execution.
   - `DocAssetGenerator.cs`: High-DPI documentation diagram, `.ico`, and icon exporter (`--generate-docs <repoRoot>`), keeping documentation rendering out of the shipped tray executable.
 
 ## Last Updated
